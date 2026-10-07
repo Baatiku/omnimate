@@ -1,33 +1,54 @@
 # Creative pipeline
 
-Omnimate's Studio mode treats creativity as a reviewable production process rather than a single prompt.
+Omnimate treats creativity as a reviewable multi-role production process, but API calls are deliberately bundled so the studio remains usable on a 5 RPM Gemini project.
 
-## Departments
+## Studio request budget
 
-**Executive Producer** defines the promise, hook, audience, emotional arc and what should make the piece memorable.
+Studio mode is limited to five normal Gemini request starts:
 
-**Research Editor** grounds factual productions with Google Search and produces only visualizable, defensible facts. In fiction it becomes a world-authenticity editor.
+1. **Creative Council** — Executive Producer, Research Editor and Story Architect share one structured call. They produce distinct department records and reconcile disagreements.
+2. **Writing Room** — the Screenwriter turns the council foundation into the locked narration, beats, visual opportunities and factual guardrails.
+3. **Direction Council** — Art Director, Animation Director, Performance & Camera Director and Continuity & Quality Critic share one structured call while retaining distinct outputs.
+4. **Showrunner** — compiles all approved material into the canonical constrained ProductionPlan.
+5. **Gemini Live Voice Actor** — performs the narration. Actual PCM duration becomes the master clock for timeline conformance.
 
-**Story Architect** designs opening, escalation, reveals, motifs, payoff and ending before prose is written.
+Draft mode uses three requests: a combined Creative + Writing Room pass, Showrunner, and Live Voice Actor.
 
-**Screenwriter** writes the final narration for the requested runtime. It is instructed to avoid generic AI phrasing and stage-direction contamination.
+## Global quota governor
 
-**Art Director** defines a coherent visual bible—silhouettes, environment language, prop motifs, palette, typography and metaphor rules.
+All Gemini traffic goes through one process-wide queue in `lib/rate-limit.js`. Text calls, Live calls, regeneration, and multiple simultaneously submitted productions therefore cannot independently exceed the configured project budget.
 
-**Animation Director** thinks physically: entrances, gestures, gaze, reactions, prop interactions, secondary motion, transitions and intentional stillness.
+Defaults:
 
-**Performance & Camera Director** controls blocking, shot size, camera movement, reaction shots and rhythm.
+- `OMNIMATE_GEMINI_RPM=5`
+- `OMNIMATE_GEMINI_RATE_SAFETY_MS=1000`
+- effective minimum spacing: 13 seconds
+- `OMNIMATE_GEMINI_MAX_RETRIES=3`
 
-**Continuity & Quality Critic** actively looks for boring stretches, impossible actions, continuity errors, weak imagery, redundant exposition, factual risk and tone drift.
+429 / RESOURCE_EXHAUSTED failures consume another paced request slot and use bounded backoff instead of retrying immediately. The current stage note exposes queue/wait/retry state to the browser.
 
-**Showrunner** gets the full record plus the critic's corrections and produces only the canonical constrained `ProductionPlan`.
+## Department responsibilities
 
-**Gemini Live Voice Actor** performs exactly the locked narration with the selected native voice. The generated PCM duration becomes the master clock, and every shot is scaled to the real performance.
+**Executive Producer** owns the promise, hook, audience and emotional arc.
 
-## Quality modes
+**Research Editor** owns factual defensibility and visualizable evidence, using Google Search grounding.
 
-`Studio` runs the complete department structure and Google Search grounding. `Draft` skips Art Director and Performance/Camera Director and avoids grounding tools, reducing calls while preserving the same final plan schema.
+**Story Architect** owns escalation, reveals, motifs, payoff and ending.
+
+**Screenwriter** owns exact spoken narration and scene beats.
+
+**Art Director** owns the visual bible.
+
+**Animation Director** owns physical acting, gestures, reactions, object interaction and secondary motion.
+
+**Performance & Camera Director** owns blocking, shot size, camera movement and rhythm.
+
+**Continuity & Quality Critic** attacks weak stretches, impossible actions, continuity errors, factual risk and missed visual opportunities.
+
+**Showrunner** is the only role allowed to emit the final constrained render plan.
+
+**Gemini Live Voice Actor** performs exactly the locked script.
 
 ## Quality principle
 
-More agents do not automatically make a better film. They help only when each role owns a distinct decision and the final Showrunner receives explicit criticism. Omnimate therefore uses parallel departments where their decisions can be independent, but a single canonical compiler at the end.
+More API calls do not automatically create better films. Omnimate preserves specialist ownership while bundling roles that benefit from real-time debate inside one model context. The renderer still receives only one canonical production plan.
