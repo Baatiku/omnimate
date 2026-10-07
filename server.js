@@ -7,11 +7,12 @@ import { fileURLToPath } from 'node:url';
 import { config } from './lib/config.js';
 import { ensureStorage, listJobs, loadJob, projectDir, saveJob } from './lib/storage.js';
 import { makeInitialStages, runProduction } from './lib/orchestrator.js';
-import { generateNarrationAudio } from './lib/gemini.js';
+import { generateNarrationAudio, geminiQuotaStatus } from './lib/gemini.js';
 import { fitPlanToAudio } from './lib/compiler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, 'public');
+const voiceRegenerations = new Set();
 await ensureStorage();
 
 const mime = new Map([
@@ -56,6 +57,10 @@ function validateCreate(body) {
   };
 }
 
+function fingerprint(options) {
+  return crypto.createHash('sha256').update(JSON.stringify(options)).digest('hex').slice(0, 24);
+}
+
 async function serveStatic(req, res, pathname) {
   const requested = pathname === '/' ? '/index.html' : pathname;
   const normalized = path.normalize(requested).replace(/^(\.\.(\/|\\|$))+/, '');
@@ -82,7 +87,8 @@ const server = http.createServer(async (req, res) => {
         geminiConfigured: Boolean(config.geminiApiKey),
         textModel: config.textModel,
         liveModel: config.liveModel,
-        version: '0.1.0'
+        geminiQuota: geminiQuotaStatus(),
+        version: '0.2.0'
       });
     }
 
@@ -97,16 +103,24 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && pathname === '/api/productions') {
       if (!config.geminiApiKey) return json(res, 503, { error: 'Gemini is not configured. Add GEMINI_API_KEY to .env and restart Omnimate.' });
       const options = validateCreate(await readJson(req));
+      const requestFingerprint = fingerprint(options);
+      const existing = (await listJobs()).find((job) =>
+        job.requestFingerprint === requestFingerprint && (job.status === 'queued' || job.status === 'running')
+      );
+      if (existing) return json(res, 202, { id: existing.id, status: existing.status, deduplicated: true });
+
       const id = `omni_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`;
       const now = new Date().toISOString();
       const job = {
         id,
+        requestFingerprint,
         status: 'queued',
         createdAt: now,
         updatedAt: now,
         options,
         stages: makeInitialStages(),
         departments: {},
+        geminiUsage: { requestsStarted: 0, rateLimitRetries: 0, lastRequestAt: null },
         plan: null,
         audio: null,
         error: null
@@ -141,21 +155,39 @@ const server = http.createServer(async (req, res) => {
 
     const regenMatch = pathname.match(/^\/api\/productions\/([a-zA-Z0-9_-]+)\/regenerate-audio$/);
     if (req.method === 'POST' && regenMatch) {
+      if (voiceRegenerations.has(regenMatch[1])) return json(res, 409, { error: 'Voice regeneration is already queued or running for this production.' });
       const job = await loadJob(regenMatch[1]);
       if (!job?.plan?.narration?.script) return json(res, 404, { error: 'A completed script is required first.' });
       const body = await readJson(req);
       const voice = ['Kore','Puck','Charon','Fenrir','Aoede'].includes(body.voice) ? body.voice : job.options.voice;
-      const audio = await generateNarrationAudio({
-        script: job.plan.narration.script,
-        voice,
-        delivery: job.plan.narration.delivery,
-        outputPath: path.join(projectDir(job.id), 'audio.wav')
-      });
-      job.audio = { ...audio, url: `/api/productions/${job.id}/audio.wav?ts=${Date.now()}`, voice };
-      job.plan = fitPlanToAudio(job.plan, audio.durationSec);
-      job.updatedAt = new Date().toISOString();
-      await saveJob(job);
-      return json(res, 200, job);
+      voiceRegenerations.add(job.id);
+      try {
+        job.geminiUsage ||= { requestsStarted: 0, rateLimitRetries: 0, lastRequestAt: null };
+        const onEvent = async (event) => {
+          if (event.type === 'start') {
+            job.geminiUsage.requestsStarted += 1;
+            job.geminiUsage.lastRequestAt = new Date().toISOString();
+          } else if (event.type === 'retry') {
+            job.geminiUsage.rateLimitRetries += 1;
+          }
+          if (['start','retry'].includes(event.type)) await saveJob(job);
+        };
+        const audio = await generateNarrationAudio({
+          label: 'Regenerate Gemini Live voice',
+          onEvent,
+          script: job.plan.narration.script,
+          voice,
+          delivery: job.plan.narration.delivery,
+          outputPath: path.join(projectDir(job.id), 'audio.wav')
+        });
+        job.audio = { ...audio, url: `/api/productions/${job.id}/audio.wav?ts=${Date.now()}`, voice };
+        job.plan = fitPlanToAudio(job.plan, audio.durationSec);
+        job.updatedAt = new Date().toISOString();
+        await saveJob(job);
+        return json(res, 200, job);
+      } finally {
+        voiceRegenerations.delete(job.id);
+      }
     }
 
     if (req.method === 'GET' && await serveStatic(req, res, pathname)) return;
@@ -169,5 +201,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(config.port, config.host, () => {
   const displayHost = config.host === '0.0.0.0' ? '127.0.0.1' : config.host;
   console.log(`Omnimate Studio running at http://${displayHost}:${config.port}`);
+  console.log(`Gemini governor: ${config.geminiRpm} RPM, ${geminiQuotaStatus().minIntervalMs}ms minimum spacing.`);
   if (!config.geminiApiKey) console.log('Gemini is not configured yet. Copy .env.example to .env and add GEMINI_API_KEY.');
 });
