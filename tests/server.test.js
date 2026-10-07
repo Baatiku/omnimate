@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const port = 18000 + (process.pid % 1000);
@@ -18,6 +21,7 @@ async function waitForServer(child) {
 }
 
 test('local server boots and serves the studio without a Gemini key', async (t) => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'omnimate-test-'));
   const child = spawn(process.execPath, ['server.js'], {
     cwd: process.cwd(),
     env: {
@@ -25,15 +29,16 @@ test('local server boots and serves the studio without a Gemini key', async (t) 
       HOST: '127.0.0.1',
       PORT: String(port),
       GEMINI_API_KEY: '',
-      OMNIMATE_DATA_DIR: `.omnimate-test-${process.pid}`
+      OMNIMATE_DATA_DIR: dataDir
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
   let stderr = '';
   child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-  t.after(() => {
+  t.after(async () => {
     if (child.exitCode === null) child.kill();
+    await fs.rm(dataDir, { recursive: true, force: true });
   });
 
   await waitForServer(child);
