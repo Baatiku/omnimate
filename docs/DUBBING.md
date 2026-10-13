@@ -18,13 +18,25 @@ In previous builds, characters sounded louder in some scenes and calmer in other
 
 ---
 
-## Emotion, Tone & Pacing-Aware Translation Engine
+## Gemini Live Native-Audio API & Voice-Directed Acting
 
-Google Gemini advanced models and Gemini Live TTS are combined into a voice-directed translation pipeline:
-1. **Scene Emotion Detection**: When translating dialogue chunks, Gemini acts as a master voice director, analyzing the context to detect the genuine emotion of each line (e.g. `enthusiastic`, `serious`, `humorous`, `warm`, `urgent`, `curious`, `somber`).
-2. **Vocal Performance Direction**: Every segment generates customized delivery guidance (e.g., `"enthusiastic and quick tempo"`, `"soft, warm, and thoughtful"`, `"firm and authoritative"`) fed directly to Gemini Live TTS turns to ensure natural prosody, pitch modulation, and human expression.
-3. **Speaking Duration Budgeting**: Each segment includes its exact timestamp duration (`sec`). The model rephrases and adapts the translated dialogue so it fits comfortably within the speaking slot without feeling rushed.
-4. **Target Languages (Hausa Default)**: Hausa (`ha`) is the strict default target language across validation, schema generation, and the UI. Yoruba (`yo`), Igbo (`ig`), Swahili (`sw`), French (`fr`), Arabic (`ar`), and Spanish (`es`) are also fully supported.
+Omnimate bypasses legacy Cloud Text-to-Speech (TTS) engines entirely in favor of the **Gemini Multimodal Live Native-Audio API** (`ai.live.connect` over bi-directional streaming WebSockets using `@google/genai`):
+1. **Gemini Live Native Audio vs Legacy TTS**:
+   - Older Cloud TTS engines rely on rigid concatenative or basic neural diphone models with synthetic cadence and unnatural accents for African tonal languages.
+   - The Gemini Live API synthesizes speech directly within end-to-end multimodal neural weights, returning pristine 24kHz 16-bit uncompressed PCM audio with authentic emotional nuance, breathing dynamics, and natural inflection.
+2. **30 Official Google Gemini HD Voices**:
+   - Powered by the full official catalog of 30 astronomical studio voices (15 Male, 15 Female, e.g. `Charon`, `Puck`, `Aoede`, `Kore`, `Zephyr`, `Orus`).
+3. **Session-Level `systemInstruction` Steering (`buildLiveSystemInstruction`)**:
+   - Each Gemini Live session is initialized with targeted system instructions configuring the model as an elite Northern Nigerian (Kano/Kaduna standard) broadcast voice actor.
+   - Enforces authentic tonal inflections, proper vowel duration (*wasula*), and natural pronunciation of glottalized consonants (ƙ, ɗ, ɓ, 'y).
+   - Enforces strict script isolation (`<SCRIPT>...</SCRIPT>`), preventing conversational chit-chat or unwanted introductory comments.
+4. **Scene Emotion Detection & Performance Direction**:
+   - Gemini analyzes the context of each dialogue line to detect emotional state (`enthusiastic`, `serious`, `humorous`, `warm`, `urgent`, `curious`, `somber`).
+   - Every segment receives customized delivery guidance (e.g. `"enthusiastic and quick tempo"`, `"soft and warm"`, `"firm and authoritative"`) sent in the user turn.
+5. **Speaking Duration Budgeting**:
+   - Each segment tracks its exact duration limit (`sec`). The model rephrases translated dialogue to fit comfortably in the speaking slot without rushing.
+6. **Target Languages (Hausa Default)**:
+   - Hausa (`ha`) is the strict default target language across validation, schema generation, and the UI. Yoruba (`yo`), Igbo (`ig`), Swahili (`sw`), French (`fr`), Arabic (`ar`), and Spanish (`es`) are also fully supported.
 
 ---
 
