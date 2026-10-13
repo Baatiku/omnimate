@@ -1,155 +1,180 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0b0f">
-  <title>Omnimate — AI Animation Studio</title>
-  <link rel="stylesheet" href="/app.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Omnimate Studio</title>
+  <link rel="stylesheet" href="/app.css" />
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <a class="brand" href="/" aria-label="Omnimate home">
-        <span class="brand-mark"><span></span><span></span></span>
-        <span>Omnimate</span>
-      </a>
-      <div class="topbar-meta">
-        <span id="modelBadge" class="chip">Checking Gemini…</span>
-        <span class="version">Studio v0.1</span>
-      </div>
-    </header>
+  <header class="topbar">
+    <div class="brand"><span class="mark"></span>Omnimate Studio</div>
+    <nav class="tabs" aria-label="Studios">
+      <button id="navPresenter" class="tabbtn" type="button">Presenter</button>
+      <button id="navDub" class="tabbtn active" type="button">Dubbing</button>
+    </nav>
+    <p id="health" class="health">Checking…</p>
+  </header>
 
-    <main>
-      <section id="createView" class="create-view">
-        <div class="hero-copy">
-          <p class="eyebrow">AI-DIRECTED PROCEDURAL ANIMATION</p>
-          <h1>Describe the film.<br><span>The studio handles the rest.</span></h1>
-          <p class="lede">Omnimate assembles a producer, researcher, writer, art director, animation director, camera director, critic and showrunner—then Gemini Live performs the final narration.</p>
+  <main class="wrap">
+    <div id="tab-presenter" hidden>
+      <div class="studio-grid">
+        <div class="flow">
+          <section class="card">
+            <h2><span class="step">1</span>Presenter photo</h2>
+            <input id="photo" type="file" accept="image/jpeg,image/png" />
+            <img id="preview" alt="Presenter preview" hidden />
+            <p class="hint">Front-facing portrait. JPG or PNG, under 10 MB.</p>
+          </section>
+
+          <section class="card">
+            <h2><span class="step">2</span>Topic <span class="opt">optional</span></h2>
+            <textarea id="prompt" rows="2" maxlength="2000" placeholder="e.g. 60-second morning football roundup"></textarea>
+            <div class="inline">
+              <select id="length" aria-label="Length">
+                <option value="30">30s</option>
+                <option value="60" selected>60s</option>
+                <option value="90">90s</option>
+              </select>
+              <button id="writeScript" class="ghost" type="button">Write script with AI</button>
+            </div>
+            <p class="hint">Or type your script directly below.</p>
+          </section>
+
+          <section class="card">
+            <h2><span class="step">3</span>Script &amp; voice</h2>
+            <textarea id="script" rows="5" maxlength="5000" placeholder="What your presenter should say…"></textarea>
+            <div class="row3">
+              <select id="voice" aria-label="Voice"><option>Loading…</option></select>
+              <select id="quality" aria-label="Quality">
+                <option value="high">High quality</option>
+                <option value="fast">Fast draft</option>
+              </select>
+              <input id="title" type="text" maxlength="120" placeholder="Title (optional)" />
+            </div>
+            <button id="generate" class="primary" type="button">Generate video</button>
+            <p id="status" class="status"></p>
+          </section>
         </div>
 
-        <form id="createForm" class="brief-card">
-          <label class="prompt-label" for="prompt">Creative brief</label>
-          <textarea id="prompt" name="prompt" rows="6" placeholder="Example: Create a visually surprising 60-second Hausa explainer showing why the sky looks blue. Use a curious teenage character, playful visual metaphors and a memorable ending." required></textarea>
-          <div class="form-grid">
-            <label>Length
-              <select id="durationSec">
-                <option value="30">30 seconds</option>
-                <option value="60" selected>60 seconds</option>
-                <option value="90">90 seconds</option>
-                <option value="120">2 minutes</option>
-              </select>
-            </label>
-            <label>Format
-              <select id="aspectRatio">
-                <option value="16:9" selected>16:9 · Landscape</option>
-                <option value="9:16">9:16 · Shorts</option>
-                <option value="1:1">1:1 · Square</option>
-              </select>
-            </label>
-            <label>Voice
-              <select id="voice">
-                <option value="Kore" selected>Kore</option>
-                <option value="Puck">Puck</option>
-                <option value="Charon">Charon</option>
-                <option value="Fenrir">Fenrir</option>
-                <option value="Aoede">Aoede</option>
-              </select>
-            </label>
-            <label>Quality
-              <select id="quality">
-                <option value="studio" selected>Studio · full crew</option>
-                <option value="draft">Draft · faster</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-grid secondary-grid">
-            <label>Visual direction
-              <input id="style" value="cinematic editorial cartoon, expressive 2D acting, modern motion design">
-            </label>
-            <label>Audience
-              <input id="audience" placeholder="General audience">
-            </label>
-          </div>
-          <div class="brief-footer">
-            <p>One click runs the complete pipeline. Studio mode makes more Gemini calls for stronger creative review.</p>
-            <button id="createButton" class="primary-button" type="submit"><span>Create production</span><b>→</b></button>
-          </div>
-          <p id="formError" class="form-error" role="alert"></p>
-        </form>
-
-        <section class="recent-section">
-          <div class="section-heading"><h2>Recent productions</h2><button id="refreshRecent" class="text-button" type="button">Refresh</button></div>
-          <div id="recentList" class="recent-list"><p class="muted">No productions yet.</p></div>
-        </section>
-      </section>
-
-      <section id="studioView" class="studio-view hidden">
-        <aside class="pipeline-panel">
-          <button id="backButton" class="back-button" type="button">← New production</button>
-          <div class="pipeline-heading">
-            <p class="eyebrow">PRODUCTION PIPELINE</p>
-            <h2 id="jobTitle">Creating…</h2>
-            <p id="jobStatus" class="muted">The studio is assembling.</p>
-          </div>
-          <div id="stageList" class="stage-list"></div>
+        <aside class="side">
+          <section class="card" id="resultCard" hidden>
+            <h2>Result</h2>
+            <video id="resultVideo" controls playsinline></video>
+            <audio id="resultAudio" controls></audio>
+          </section>
+          <section class="card">
+            <h2>Recent</h2>
+            <ul id="recent" class="jobs"></ul>
+          </section>
         </aside>
+      </div>
+    </div>
 
-        <section class="workspace">
-          <div class="workspace-toolbar">
-            <div>
-              <span id="projectState" class="state-pill">Working</span>
-              <span id="durationBadge" class="toolbar-note"></span>
+    <div id="tab-dub">
+      <div class="studio-grid">
+        <div class="flow">
+          <section class="card">
+            <h2><span class="step">1</span>Your video</h2>
+            <input id="dubUrl" type="url" placeholder="YouTube link — https://www.youtube.com/watch?v=…" />
+            <input id="dubDirect" type="url" placeholder="Or direct file link — https://…/video.mp4" />
+            <div class="file-upload-row">
+              <label for="dubFile" class="file-label">Or upload video file: </label>
+              <input id="dubFile" type="file" accept="video/mp4,video/quicktime,video/webm" />
             </div>
-            <div class="toolbar-actions">
-              <button id="downloadPlan" class="ghost-button" type="button" disabled>Production JSON</button>
-              <button id="exportButton" class="primary-button small" type="button" disabled>Record WebM</button>
+
+            <div class="row3">
+              <select id="dubLang" aria-label="Language">
+                <option value="ha" selected>Hausa (Default)</option>
+                <option value="yo">Yoruba</option>
+                <option value="ig">Igbo</option>
+                <option value="sw">Swahili</option>
+                <option value="fr">French</option>
+                <option value="ar">Arabic</option>
+                <option value="es">Spanish</option>
+              </select>
+              <select id="dubVoice" aria-label="Default Voice"><option>Loading…</option></select>
+              <select id="dubMode" aria-label="Workflow Mode">
+                <option value="review" selected>Review &amp; Edit first (Recommended)</option>
+                <option value="auto">1-Click Auto Dub</option>
+              </select>
             </div>
-          </div>
 
-          <div class="stage-wrap">
-            <canvas id="stageCanvas" width="1280" height="720" aria-label="Omnimate animation preview"></canvas>
-            <div id="stagePlaceholder" class="stage-placeholder">
-              <div class="pulse-orb"></div>
-              <strong>The directors are working.</strong>
-              <span>Shots appear here when the showrunner locks the production.</span>
+            <div class="audio-controls-row">
+              <label class="slider-label">
+                <span>Background Music &amp; Ambient (M&amp;E):</span>
+                <input id="dubBgVolume" type="range" min="0" max="1" step="0.05" value="0.25" />
+                <span id="dubBgVolumeVal">25%</span>
+              </label>
+              <label class="check-label">
+                <input id="dubDucking" type="checkbox" checked />
+                <span>Sidechain Ducking (lower music when speaking)</span>
+              </label>
             </div>
-          </div>
 
-          <div class="transport">
-            <button id="playButton" class="round-button" type="button" disabled aria-label="Play">▶</button>
-            <input id="scrubber" type="range" min="0" max="1" step="0.01" value="0" disabled aria-label="Timeline">
-            <span id="timecode">00:00 / 00:00</span>
-            <button id="restartButton" class="ghost-button" type="button" disabled>Restart</button>
-          </div>
-          <audio id="narration" preload="auto"></audio>
-          <p id="exportStatus" class="export-status" aria-live="polite"></p>
+            <button id="dubGenerate" class="primary" type="button">Start Dubbing</button>
+            <p id="dubStatus" class="status"></p>
+            <div id="dubTimer" class="dub-timer-container" hidden>
+              <span class="timer-icon">⏱️</span>
+              <span id="dubTimerText" class="timer-text">00:00</span>
+              <span id="dubTimerPhase" class="timer-phase">Stage: Initializing…</span>
+            </div>
+            <p class="hint">Professional dubbing: stem separation preserves background music, speaker turn detection, line-exact timing, and -16 LUFS loudness leveling.</p>
+          </section>
 
-          <div id="details" class="details-grid hidden">
-            <article class="detail-card overview-card">
-              <p class="eyebrow">SHOWRUNNER LOCK</p>
-              <h3 id="planTitle"></h3>
-              <p id="planLogline" class="detail-lede"></p>
-              <div id="palette" class="palette"></div>
-            </article>
-            <article class="detail-card">
-              <div class="section-heading"><h3>Final narration</h3><button id="regenVoice" class="text-button" type="button">Regenerate voice</button></div>
-              <p id="narrationScript" class="script-copy"></p>
-            </article>
-            <article class="detail-card shots-card">
-              <h3>Shot list</h3>
-              <div id="shotList" class="shot-list"></div>
-            </article>
-            <article class="detail-card crew-card">
-              <h3>Department notes</h3>
-              <div id="crewNotes" class="crew-notes"></div>
-            </article>
-          </div>
-        </section>
-      </section>
-    </main>
-  </div>
+          <!-- Interactive Review Studio (Human-in-the-Loop) -->
+          <section class="card" id="dubStudioCard" hidden>
+            <div class="studio-header">
+              <h2><span class="step">2</span>Review &amp; Edit Lines</h2>
+              <div class="studio-actions-top">
+                <button id="dubSaveSegmentsTop" class="ghost" type="button">Save Edits</button>
+                <button id="dubApproveRenderTop" class="primary inline-btn" type="button">Approve &amp; Render Video</button>
+              </div>
+            </div>
 
-  <script type="module" src="/app.js"></script>
+            <!-- Multi-Speaker Voice Assignment Controls -->
+            <div id="dubSpeakersSection" class="speakers-panel">
+              <div class="speakers-panel-header">
+                <div>
+                  <h3>Speaker Voice Assignment</h3>
+                  <p class="speakers-panel-sub">Acoustically detected speakers with pitch &amp; gender presentation. Audition their original audio from the video clip and assign distinct voices.</p>
+                </div>
+                <button id="dubAddSpeakerBtn" class="ghost-sm inline-btn" type="button">+ Add Speaker</button>
+              </div>
+              <div id="dubSpeakersGrid" class="speakers-grid"></div>
+            </div>
+
+            <!-- Segment Timeline List -->
+            <div id="dubSegmentsList" class="segments-list"></div>
+
+            <div class="studio-footer">
+              <button id="dubSaveSegments" class="ghost" type="button">Save Edits</button>
+              <button id="dubApproveRender" class="primary" type="button">Approve &amp; Render Video</button>
+            </div>
+          </section>
+        </div>
+
+        <aside class="side">
+          <section class="card" id="dubResultCard" hidden>
+            <h2>Dubbed video</h2>
+            <video id="dubVideo" controls playsinline></video>
+            <p class="downloads">
+              <a id="dubDownload" href="#" download>Video (MP4)</a>
+              <a id="dubAudio" href="#" download>Voiceover (WAV)</a>
+            </p>
+            <p class="downloads subtitle-downloads">
+              <a id="dubSrt" href="#" download>Subtitles (.SRT)</a>
+              <a id="dubVtt" href="#" download>Subtitles (.VTT)</a>
+            </p>
+          </section>
+          <section class="card">
+            <h2>Recent</h2>
+            <ul id="recentDubs" class="jobs"></ul>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </main>
+  <script src="/app.js" type="module"></script>
 </body>
 </html>

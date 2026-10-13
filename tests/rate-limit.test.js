@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GeminiRateGovernor, isRateLimitError } from '../lib/rate-limit.js';
+import { GeminiRateGovernor, isRateLimitError, isTransientError } from '../lib/rate-limit.js';
 
 test('governor spaces globally queued Gemini starts for a 5 RPM budget', async () => {
   let now = 0;
@@ -55,4 +55,32 @@ test('rate-limit detection recognizes Gemini quota errors', () => {
   assert.equal(isRateLimitError(Object.assign(new Error('nope'), { status: 500 })), false);
   assert.equal(isRateLimitError(Object.assign(new Error('quota'), { status: 429 })), true);
   assert.equal(isRateLimitError(new Error('RESOURCE_EXHAUSTED: rate limit exceeded')), true);
+});
+
+test('transient detection covers overload errors without changing 429 semantics', () => {
+  assert.equal(isTransientError(Object.assign(new Error('quota'), { status: 429 })), true);
+  assert.equal(isTransientError(Object.assign(new Error('nope'), { status: 503 })), true);
+  assert.equal(isTransientError(new Error('503 gemini-3.8-flash is currently experiencing high demand. Please try again later.')), true);
+  assert.equal(isTransientError(new Error('UNAVAILABLE: model overloaded')), true);
+  assert.equal(isTransientError(Object.assign(new Error('bad schema'), { status: 400 })), false);
+  assert.equal(isTransientError(new Error('Gemini returned no structured output.')), false);
+});
+
+test('503 retries back off instead of failing immediately', async () => {
+  let now = 0;
+  let attempts = 0;
+  const governor = new GeminiRateGovernor({
+    rpm: 5, safetyMs: 1000, maxRetries: 2, now: () => now,
+    sleep: async (ms) => { now += ms; }, random: () => 0
+  });
+  const result = await governor.schedule({
+    label: 'overload-test',
+    task: async () => {
+      attempts += 1;
+      if (attempts === 1) throw Object.assign(new Error('high demand, try again later'), { status: 503 });
+      return 'recovered';
+    }
+  });
+  assert.equal(result, 'recovered');
+  assert.equal(attempts, 2);
 });

@@ -40,8 +40,10 @@ const checks = [
   ['Node.js 22+', nodeMajor >= 22, process.version],
   ['package.json', fs.existsSync(path.join(root, 'package.json')), 'required'],
   ['public UI', fs.existsSync(path.join(root, 'public/index.html')) && fs.existsSync(path.join(root, 'public/app.js')), 'required'],
+  ['presenter pipeline', fs.existsSync(path.join(root, 'lib/presenter.js')) && fs.existsSync(path.join(root, 'lib/modal-client.js')) && fs.existsSync(path.join(root, 'modal/presenter.py')), 'required'],
   ['JavaScript syntax', syntaxFailures.length === 0, syntaxFailures.length ? syntaxFailures.join(' | ') : `${sourceFiles().length} files checked`],
-  ['Gemini key', Boolean(config.geminiApiKey), config.geminiApiKey ? 'configured' : 'set GEMINI_API_KEY in .env before generating a film']
+  ['Gemini key', Boolean(config.geminiApiKey), config.geminiApiKey ? 'configured' : 'set GEMINI_API_KEY in .env before generating a voice'],
+  ['Modal video', Boolean(config.modalPresenterUrl), config.modalPresenterUrl ? 'configured' : 'deploy modal/presenter.py, then set MODAL_PRESENTER_URL in .env before generating video']
 ];
 
 if (!checkOnly) {
