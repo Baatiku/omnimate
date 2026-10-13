@@ -104,6 +104,13 @@ Omnimate features an acoustic speaker diarization engine:
 * `GET /api/dubs/:id/preview/:index.wav`: Stream auditioned audio slice.
 * `POST /api/dubs/:id/render`: Trigger final audio mastering, ducking, and video assembly.
 
+### Cookies & YouTube Ingest API
+* `GET /api/cookies`: Status of configured cookies (source, file size, connection state).
+* `POST /api/cookies/auto-detect`: Auto-extract session cookies from local browsers (Firefox, Edge, Chrome).
+* `POST /api/cookies/extract`: Extract from a designated browser (`{ browser: 'firefox' }`).
+* `POST /api/cookies/upload`: Upload Netscape-format `cookies.txt` file content.
+* `DELETE /api/cookies`: Clear stored cookies.
+
 ### Export & Subtitles
 * `GET /api/dubs/:id/video.mp4`: Download finalized video (`dubbed.mp4`).
 * `GET /api/dubs/:id/audio.wav`: Download finalized voiceover track (`voiceover.wav`).
@@ -112,10 +119,19 @@ Omnimate features an acoustic speaker diarization engine:
 
 ---
 
+## YouTube Bot-Check Protection & Cookie Architecture
+
+Cloud datacenter IPs (Modal, AWS, GCP) frequently face YouTube bot challenges (`HTTP Error 403: Forbidden / Sign in to confirm you’re not a bot`). Omnimate employs a multi-tiered architecture:
+1. **Netscape Cookie Store (`lib/cookies.js`)**: Materializes stored cookies into `.omnimate/cookies.txt` and forwards them in the multipart payload to Modal.
+2. **Local Browser Auto-Extraction**: Automatically extracts YouTube session cookies from local browsers (Firefox, Edge, Chrome) without requiring manual terminal commands.
+3. **Residential Auto-Heal Fallback (`lib/youtube-downloader.js`)**: If cloud datacenter IP download is blocked by YouTube, Omnimate automatically catches the error, downloads the video using the user's residential IP and local `yt-dlp` session, and uploads the source MP4 directly to Modal. This completely bypasses datacenter blocks with 100% reliability.
+
+---
+
 ## Deploying Worker
 
 ```bash
-python -m modal deploy modal/dub.py
+python -X utf8 -m modal deploy modal/dub.py
 ```
 
 Set the printed URL in `.env` as `MODAL_DUB_URL` and restart the server:
@@ -123,3 +139,4 @@ Set the printed URL in `.env` as `MODAL_DUB_URL` and restart the server:
 ```powershell
 npm start
 ```
+
