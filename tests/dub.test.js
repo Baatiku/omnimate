@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateDubCreate, placeSegments, DUB_TARGET_LANGS, autoAssignSpeakerVoices, FEMALE_VOICES, MALE_VOICES, FEMALE_VOICE_TIERS, MALE_VOICE_TIERS } from '../lib/dub.js';
 
 test('dub validation needs one link and picks Hausa by default', () => {
-  const input = validateDubCreate({ youtubeUrl: 'https://www.youtube.com/watch?v=abc123', voice: 'Fola' });
+  const input = validateDubCreate({ youtubeUrl: 'https://www.youtube.com/watch?v=abc123', voice: 'Aoede' });
   assert.equal(input.targetLang, 'ha');
   assert.throws(() => validateDubCreate({}), /link/);
   assert.throws(() => validateDubCreate({ youtubeUrl: 'not a link' }), /invalid/);
@@ -51,14 +51,14 @@ test('dub validation accepts local files, review mode, and multi-speaker voice m
     mode: 'review',
     bgVolume: 0.35,
     ducking: false,
-    speakerVoices: { speaker_0: 'Bodi', speaker_1: 'Lumi' },
+    speakerVoices: { speaker_0: 'Charon', speaker_1: 'Aoede' },
   });
   assert.equal(input.localFile, 'C:/videos/lecture.mp4');
   assert.equal(input.mode, 'review');
   assert.equal(input.bgVolume, 0.35);
   assert.equal(input.ducking, false);
-  assert.equal(input.speakerVoices.speaker_0, 'Bodi');
-  assert.equal(input.speakerVoices.speaker_1, 'Lumi');
+  assert.equal(input.speakerVoices.speaker_0, 'Charon');
+  assert.equal(input.speakerVoices.speaker_1, 'Aoede');
 });
 
 test('placements preserve speaker attribution when provided', () => {
@@ -149,23 +149,23 @@ test('autoAssignSpeakerVoices balances gender presentation without collisions or
   assert.ok(MALE_VOICES.includes(assigned.speaker_2), `Male speaker 2 must get male voice, got ${assigned.speaker_2}`);
   assert.ok(MALE_VOICES.includes(assigned.speaker_3), `Male speaker 3 must get male voice, got ${assigned.speaker_3}`);
 
-  // Assert retired legacy voices are NEVER assigned
-  const forbidden = ['kore', 'puck', 'zephyr', 'fenrir', 'aoede', 'charon', 'leda', 'callirrhoe', 'orus', 'thallo'];
+  // Assert hallucinated / invalid voice names are NEVER assigned
+  const forbidden = ['bodi', 'fola', 'lumi', 'koda', 'brio', 'sola', 'mako'];
   for (const v of values) {
-    assert.ok(!forbidden.includes(v.toLowerCase()), `Forbidden legacy voice detected: ${v}`);
+    assert.ok(!forbidden.includes(v.toLowerCase()), `Invalid voice detected: ${v}`);
   }
 });
 
-test('voice catalog lists 9 females and 21 males totaling 30 modern Google voices', () => {
-  assert.equal(FEMALE_VOICES.length, 9);
-  assert.equal(MALE_VOICES.length, 21);
+test('voice catalog lists 15 females and 15 males totaling 30 official Google Gemini voices', () => {
+  assert.equal(FEMALE_VOICES.length, 15);
+  assert.equal(MALE_VOICES.length, 15);
   assert.equal(FEMALE_VOICES.length + MALE_VOICES.length, 30);
-  assert.ok(FEMALE_VOICES.includes('Fola'));
-  assert.ok(FEMALE_VOICES.includes('Lumi'));
-  assert.ok(FEMALE_VOICES.includes('Sola'));
-  assert.ok(MALE_VOICES.includes('Bodi'));
-  assert.ok(MALE_VOICES.includes('Koda'));
-  assert.ok(MALE_VOICES.includes('Brio'));
+  assert.ok(FEMALE_VOICES.includes('Aoede'));
+  assert.ok(FEMALE_VOICES.includes('Kore'));
+  assert.ok(FEMALE_VOICES.includes('Zephyr'));
+  assert.ok(MALE_VOICES.includes('Charon'));
+  assert.ok(MALE_VOICES.includes('Puck'));
+  assert.ok(MALE_VOICES.includes('Fenrir'));
 });
 
 test('autoAssignSpeakerVoices matches visual demographic age tiers correctly', () => {
@@ -181,25 +181,25 @@ test('autoAssignSpeakerVoices matches visual demographic age tiers correctly', (
   // Child female must get a youthful female voice from FEMALE_VOICE_TIERS.Child
   assert.ok(
     FEMALE_VOICE_TIERS.Child.includes(assigned.speaker_0),
-    `Girl child should receive child voice (Lumi/Nika/Cleo), got ${assigned.speaker_0}`
+    `Girl child should receive child voice (Zephyr/Autonoe/Leda), got ${assigned.speaker_0}`
   );
 
   // Child male must get a youthful male voice from MALE_VOICE_TIERS.Child
   assert.ok(
     MALE_VOICE_TIERS.Child.includes(assigned.speaker_1),
-    `Boy child should receive child voice (Finn/Arlo/Jett/Tavi), got ${assigned.speaker_1}`
+    `Boy child should receive child voice (Puck/Fenrir/Umbriel), got ${assigned.speaker_1}`
   );
 
   // Senior female must get a mature female voice from FEMALE_VOICE_TIERS.Senior
   assert.ok(
     FEMALE_VOICE_TIERS.Senior.includes(assigned.speaker_2),
-    `Senior woman should receive senior voice (Enya/Tova/Kira), got ${assigned.speaker_2}`
+    `Senior woman should receive senior voice (Gacrux/Vindemiatrix/Achernar/Kore), got ${assigned.speaker_2}`
   );
 
   // Senior male must get a mature male voice from MALE_VOICE_TIERS.Senior
   assert.ok(
     MALE_VOICE_TIERS.Senior.includes(assigned.speaker_3),
-    `Senior man should receive senior voice (Daro/Sami/Gero/Neno/Olin/Knox), got ${assigned.speaker_3}`
+    `Senior man should receive senior voice (Algenib/Sadaltager/Charon/Alnilam), got ${assigned.speaker_3}`
   );
 
   // All 4 speakers must have distinct voices without collision

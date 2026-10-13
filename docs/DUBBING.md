@@ -28,25 +28,60 @@ Google Gemini advanced models and Gemini Live TTS are combined into a voice-dire
 
 ---
 
-## Visual Demographic Scanning & Age-Appropriate Voice Casting
+## Visual Demographic Scanning & Human-Verified Face Detection
 
 To solve the audio-only blindspot where children and adult women share high fundamental pitch ($F_0 \sim 220\text{--}300$ Hz) and young adults cannot be differentiated from elders, Omnimate pairs acoustic diarization with multimodal visual biometric scanning:
-1. **Scene Keyframe Extraction**: The Modal worker isolates the midpoint timestamp of each speaker's longest clean speech turn and extracts a scene frame using FFmpeg (`frame_{spk_id}.jpg`).
-2. **Visual Demographic Analysis (`analyzeSpeakerVisualDemographics`)**: Powered by Google Gemini multimodal intelligence, each speaker's frame is analyzed for:
-   - **Facial Presence**: Detects whether a speaking person or face is in frame, with graceful fallback for off-camera narrators.
-   - **Gender Presentation**: `Female`, `Male`, or `Unknown`.
-   - **Age Group**: `Child` (3–12 yrs), `Teen` (13–19 yrs), `Young Adult` (20–35 yrs), `Adult` (36–55 yrs), or `Senior` (56+ yrs).
-   - **Estimated Numerical Age**: e.g. `6-8`, `28`, `65+`.
-   - **Facial Expression / Mood**: e.g. `smiling and playful`, `serious and focused`, `laughing`.
-   - **Vocal Acting Performance Prompt**: Formulates precise voice-age performance instructions for Gemini Live TTS (e.g. for a child: *"Young child voice (approx 7-8 years old), bright energetic tone, playful inflection, natural lively cadence"*).
-3. **Demographic Voice Tiers (30 Modern Google Voices)**:
-   - **Female Youth / Kid**: `Lumi`, `Nika`, `Cleo`
-   - **Female Young Adult**: `Fola`, `Sola`, `Hali`
-   - **Female Senior / Mature**: `Enya`, `Tova`, `Kira`
-   - **Male Youth / Kid**: `Finn`, `Arlo`, `Jett`, `Tavi`
-   - **Male Young Adult**: `Bodi`, `Koda`, `Brio`, `Ludo`, `Mako`, `Jori`, `Rami`, `Enzo`, `Riko`
-   - **Male Senior / Mature**: `Daro`, `Sami`, `Gero`, `Neno`, `Olin`, `Knox`, `Cruz`, `Elio`
-4. **Tone & Age-Informed Hausa Translation**: Translation prompts receive each character's age, gender, and expression, ensuring vocabulary and honorifics in Hausa sound culturally authentic to the character's age.
+1. **Human Face Verification & Keyframe Extraction (`extract_speaker_keyframe`)**:
+   - The Modal worker samples multiple candidate timestamps across the speaker's top speech turns.
+   - Evaluates each candidate frame with OpenCV's human frontal face Haar cascade (`haarcascade_frontalface_default.xml`).
+   - If a human face is detected, it selects that frame and marks `has_human_face: true`.
+   - If no human face is found across all candidates (e.g., in nature/wildlife documentaries where animals or landscapes are on screen while a narrator speaks off-camera), it marks `has_human_face: false`.
+2. **Zero-API-Call Rate Optimization (5 RPM Budget)**:
+   - If `has_human_face: false`, Omnimate **bypasses the Gemini vision API call entirely**, saving valuable API quota and preventing animal photos from ever being misidentified as human speakers.
+   - The speaker is immediately classified as an **Off-screen Narrator**, using acoustic pitch ($F_0$) to cast the voice with zero wasted Gemini API calls.
+3. **Biological Human Filter in Gemini (`analyzeSpeakerVisualDemographics`)**:
+   - For confirmed candidate frames, Gemini analyzes the image with strict biological human filtering (`isHuman: boolean`, `subjectCategory: 'human' | 'animal' | 'scenery' | 'object'`).
+   - If an animal is present, Gemini sets `isHuman: false` and `faceDetected: false`.
+   - For human subjects, extracts gender, age bracket (`Child`, `Teen`, `Young Adult`, `Adult`, `Senior`), estimated numerical age, expression, and tailored vocal acting performance prompt.
+4. **Official 30 Google Gemini Prebuilt Voices (Astronomical Studio Catalog)**:
+   - **Female Voices (15)**:
+     - Youth / Child: `Zephyr`, `Autonoe`, `Leda`
+     - Young Adult: `Aoede`, `Callirrhoe`, `Laomedeia`, `Despina`, `Erinome`
+     - Adult / Broadcaster: `Kore`, `Aoede`, `Pulcherrima`, `Sulafat`, `Erinome`, `Rasalgethi`
+     - Senior / Matriarch: `Gacrux`, `Vindemiatrix`, `Achernar`, `Kore`
+   - **Male Voices (15)**:
+     - Youth / Child: `Puck`, `Fenrir`, `Umbriel`
+     - Young Adult: `Puck`, `Achird`, `Zubenelgenubi`, `Iapetus`, `Sadachbia`
+     - Adult / Anchor: `Charon`, `Orus`, `Algieba`, `Alnilam`, `Schedar`, `Sadaltager`
+     - Senior / Seasoned: `Algenib`, `Sadaltager`, `Charon`, `Alnilam`
+
+> [!NOTE]
+> **Why Unofficial Names Like "Bodi" Defaulted to Female Audio**:
+> In Google Gemini Multimodal Live and TTS APIs, only the official astronomical voice identifiers (`Charon`, `Puck`, `Aoede`, `Kore`, etc.) are recognized. When an unlisted identifier like "Bodi" or "Fola" was sent, Gemini silently fell back to its default system voice (`Aoede`/`Kore`), which is female. Omnimate now exclusively uses Google's verified 30 prebuilt voices.
+
+---
+
+## Native Hausa Cultural & Idiomatic Transcreation (No Word-for-Word Calques)
+
+English and Hausa have fundamentally different grammatical structures, aspectual dynamics, and idiomatic expressions. Word-for-word translation creates awkward, unnatural calques that sound broken to native Hausa listeners. Omnimate enforces **Native Hausa Cultural Transcreation**:
+1. **Strict Calque Prohibition**:
+   - Re-authors English dialogue into natural, fluent living Hausa (*Fassara mai 'yanci kuma karbabbiya a al'adance da harshen Hausa*).
+   - Calque replacements:
+     - *"It makes sense"* $\rightarrow$ Never *"yana yin azanci"*; uses *"wannan abu ne mai ma'ana"* or *"haka maganar take"*.
+     - *"Take a look at this"* $\rightarrow$ Never *"dauki duba"*; uses *"kalli wannan"* or *"ka lura da wannan"*.
+     - *"How are you doing today?"* $\rightarrow$ Never *"yaya kake yi yau"*; uses *"ina kwana"*, *"yaya lafiya"*, or *"barkanmu da yau"*.
+     - *"At the end of the day"* $\rightarrow$ Never *"a karshen rana"*; uses *"daga karshe dai"* or *"ko ta yaya ma dai"*.
+     - *"Don't get me wrong"* $\rightarrow$ Never *"kada ka fahimce ni ba daidai ba"*; uses *"kada ka dauka cewa..."*.
+2. **Production Focus & Genre Adaptation (`analyzeVideoContext`)**:
+   - **Documentary (Fim mai ilmantarwa / Tarihi)**: BBC Hausa / National Geographic storytelling style. Rich descriptive vocabulary, narrative gravitas, and steady contemplative cadence.
+   - **News Broadcast (Labaran Duniya da Rahotanni)**: BBC / VOA Hausa journalistic standard. Formal grammatical Hausa (*Hausar Boko da ta Labarai*), dignified, articulate delivery without casual slang.
+   - **Movies & Drama (Fina-finan Hausa da Wasan Kwaikwayo)**: Everyday living spoken Hausa (Kannywood / Kano dialect). Authentic emotional reactions (*Kai!*, *Haba dai!*, *Ashe!*, *To fa!*, *Ikon Allah!*), natural banter, and realistic conversational cadence.
+   - **Podcasts & Interviews (Tattaunawa da Hira)**: Warm, interactive, conversational bridges (*"Kamar yadda kuka sani"*, *"To kaga"*, *"Idan muka duba"*).
+   - **Educational & Tutorials (Koyarwa da Bayani)**: Intuitive native Hausa analogies that demystify technical terms.
+3. **Aspectual Grammar & Gender Inflection**:
+   - Enforces strict grammatical gender markers (*ya/ta*, *kai/ke*, *ka/ki*, *shi/ita*) and natural aspect markers (*yana/tana*, *ya/ta*, *zai/za ta*).
+4. **Time Slot Duration Budgeting**:
+   - Intelligently streamlines sentences so the translated lines fit comfortably within the segment's exact second duration (`sec`) without forcing the AI voice actor to rush.
 
 ---
 
@@ -58,7 +93,7 @@ Omnimate features an acoustic speaker diarization engine:
 3. **Dynamic Agglomerative Clustering**: Uses Ward-linkage clustering and silhouette evaluation to automatically discover the true number of speakers ($k \ge 1$, up to 6+), grouping all dialogue turns by distinct speaker identities.
 4. **Gender Presentation & Auto Voice Balancing**:
    - Analyzes aggregate median pitch per cluster ($F_0 \ge 165.0$ Hz $\rightarrow$ Female; $< 165.0$ Hz $\rightarrow$ Male) reinforced by facial vision.
-   - Automatically distributes distinct, non-colliding voices from the 30 new Google voice catalog (9 Female, 21 Male).
+   - Automatically distributes distinct, non-colliding voices from the 30 official Google voice catalog (15 Female, 15 Male).
 5. **Original Audio Sample Extraction**: Automatically locates the cleanest, longest utterance for each speaker. The Review Studio streams audio slices (`GET /api/dubs/:id/sample/:index.wav`) allowing the user to audition the real speaker's voice from the video clip with one click.
 6. **Dynamic Speaker Creation & Segment Reassignment**: Users can click **+ Add Speaker** at any time and reassign segments across speakers in real time.
 

@@ -37,7 +37,8 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git", "wget", "nodejs")
     .pip_install("fastapi==0.110.3", "python-multipart==0.0.9",
-                 "yt-dlp>=2026.8.19", "faster-whisper", "numpy", "scipy", "scikit-learn")
+                 "yt-dlp>=2026.8.19", "faster-whisper", "numpy", "scipy", "scikit-learn",
+                 "opencv-python-headless")
 )
 
 jobs = modal.Volume.from_name("omnimate-dub-jobs", create_if_missing=True)
@@ -228,6 +229,91 @@ def cluster_speakers(segment_feats: list) -> tuple[list[int], int]:
     return [int(lbl) for lbl in best_labels], best_k
 
 
+def extract_speaker_keyframe(source: Path, spk_segs: list, out_path: Path):
+    """
+    Extracts a representative scene keyframe for a speaker with human face verification.
+    Samples candidate timestamps across the speaker's top utterances and uses OpenCV
+    Haar cascade to confirm a genuine human face.
+    Returns (has_human_face: bool, chosen_sec: float).
+    """
+    if not spk_segs:
+        return False, 0.0
+
+    sorted_segs = sorted(spk_segs, key=lambda s: s["end"] - s["start"], reverse=True)
+    candidates = []
+    for s in sorted_segs[:3]:
+        dur = s["end"] - s["start"]
+        mid = (s["start"] + s["end"]) / 2.0
+        candidates.append(mid)
+        if dur >= 3.0:
+            candidates.append(s["start"] + dur * 0.3)
+            candidates.append(s["start"] + dur * 0.7)
+
+    unique_candidates = []
+    for c in candidates:
+        if not any(abs(c - u) < 0.8 for u in unique_candidates):
+            unique_candidates.append(round(c, 2))
+        if len(unique_candidates) >= 4:
+            break
+
+    if not unique_candidates:
+        unique_candidates = [0.0]
+
+    face_cascade = None
+    try:
+        import cv2
+        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        face_cascade = cv2.CascadeClassifier(cascade_path)
+    except Exception:
+        pass
+
+    import tempfile
+    import shutil
+    best_candidate_sec = unique_candidates[0]
+    has_human = False
+
+    for cand_sec in unique_candidates:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+        try:
+            subprocess.run([
+                "ffmpeg", "-y", "-v", "error", "-ss", f"{cand_sec:.2f}",
+                "-i", str(source), "-vframes", "1", "-q:v", "2",
+                str(tmp_path)
+            ], timeout=20)
+
+            if tmp_path.exists() and tmp_path.stat().st_size > 1000:
+                if face_cascade is not None:
+                    try:
+                        import cv2
+                        img = cv2.imread(str(tmp_path))
+                        if img is not None:
+                            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                            faces = face_cascade.detectMultiScale(
+                                gray, scaleFactor=1.1, minNeighbors=4, minSize=(36, 36)
+                            )
+                            if len(faces) > 0:
+                                shutil.copyfile(str(tmp_path), str(out_path))
+                                has_human = True
+                                best_candidate_sec = cand_sec
+                                break
+                    except Exception:
+                        pass
+                if not out_path.exists():
+                    shutil.copyfile(str(tmp_path), str(out_path))
+                    best_candidate_sec = cand_sec
+        except Exception:
+            pass
+        finally:
+            if tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except Exception:
+                    pass
+
+    return has_human, best_candidate_sec
+
+
 def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str,
               direct_source: bool = False, cookies_path: Path | None = None) -> tuple[list, dict]:
     """Download or ingest video, extract audio, separate background M&E, and transcribe with acoustic speaker diarization."""
@@ -343,19 +429,10 @@ def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str,
         pitches = [s["pitch_hz"] for s in spk_segs if s.get("pitch_hz", 0) > 0]
         med_pitch = float(np.median(pitches)) if pitches else 140.0
         gender = "Female" if med_pitch >= 165.0 else "Male"
-        # Extract a clean scene keyframe centered on the speaker's longest utterance
         sample_seg = max(spk_segs, key=lambda s: s["end"] - s["start"]) if spk_segs else {"start": 0.0, "end": 1.0, "i": 0}
-        mid_sec = max(0.0, round((sample_seg["start"] + sample_seg["end"]) / 2.0, 2))
         frame_file = f"frame_{spk_id}.jpg"
         frame_path = path / frame_file
-        try:
-            subprocess.run([
-                "ffmpeg", "-y", "-v", "error", "-ss", f"{mid_sec:.2f}",
-                "-i", str(source), "-vframes", "1", "-q:v", "2",
-                str(frame_path)
-            ], timeout=30)
-        except Exception:
-            pass
+        has_human_face, best_sec = extract_speaker_keyframe(source, spk_segs, frame_path)
 
         speakers_meta[spk_id] = {
             "id": spk_id,
@@ -364,8 +441,9 @@ def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str,
             "sample_seg_i": sample_seg["i"],
             "count": len(spk_segs),
             "total_sec": round(sum(s["end"] - s["start"] for s in spk_segs), 1),
-            "keyframe_sec": mid_sec,
+            "keyframe_sec": best_sec,
             "has_frame": frame_path.exists(),
+            "has_human_face": has_human_face,
         }
 
     (path / "segments.json").write_text(json.dumps({"segments": segments, "speakers": speakers_meta}, ensure_ascii=False))

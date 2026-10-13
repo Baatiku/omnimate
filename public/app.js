@@ -215,7 +215,7 @@ async function loadVoices() {
       }
       voiceSelect.appendChild(group);
     }
-    voiceSelect.value = 'Fola';
+    voiceSelect.value = voices[0]?.name || 'Charon';
     if (dubVoiceSelect) {
       dubVoiceSelect.innerHTML = '';
       const autoOption = document.createElement('option');
@@ -238,7 +238,7 @@ async function loadVoices() {
       dubVoiceSelect.value = 'auto';
     }
   } catch {
-    voiceSelect.innerHTML = '<option>Fola</option>';
+    voiceSelect.innerHTML = '<option>Charon</option>';
   }
 }
 
@@ -689,7 +689,7 @@ function renderReviewStudio(job) {
       auditionBtn.textContent = 'Voicing preview…';
       feedbackSpan.hidden = true;
       try {
-        const activeVoice = currentReviewJob.speakerVoices?.[spkSelect.value] || currentReviewJob.voice || 'Fola';
+        const activeVoice = currentReviewJob.speakerVoices?.[spkSelect.value] || currentReviewJob.voice || 'Charon';
         const res = await fetch(`/api/dubs/${encodeURIComponent(job.id)}/preview-line`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -747,7 +747,7 @@ dubAddSpeakerBtn?.addEventListener('click', () => {
 
   const existingVoices = new Set(Object.values(currentReviewJob.speakerVoices));
   const candidate = cachedVoices.find((v) => !existingVoices.has(v.name)) || cachedVoices[0];
-  const chosenVoice = candidate?.name || 'Bodi';
+  const chosenVoice = candidate?.name || 'Charon';
   const chosenGender = candidate?.gender || 'Male';
 
   currentReviewJob.speakersMeta[newSpkId] = {
