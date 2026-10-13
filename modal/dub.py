@@ -34,8 +34,8 @@ import numpy as np
 app = modal.App("omnimate-dub")
 
 image = (
-    modal.Image.debian_slim(python_version="3.10")
-    .apt_install("ffmpeg", "git", "wget")
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("ffmpeg", "git", "wget", "nodejs")
     .pip_install("fastapi==0.110.3", "python-multipart==0.0.9",
                  "yt-dlp[default]", "faster-whisper", "numpy", "scipy", "scikit-learn")
 )
@@ -234,6 +234,7 @@ def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str, dire
     if not direct_source:
         if youtube_url:
             cmd = ["yt-dlp", "-f", "bv*[height<=720]+ba/b[height<=720]/b",
+                   "--extractor-args", "youtube:player_client=android,ios,web",
                    "--merge-output-format", "mp4", "-o", str(source), youtube_url]
         else:
             cmd = ["yt-dlp", "-f", "b", "--merge-output-format", "mp4",
@@ -241,7 +242,14 @@ def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str, dire
                    "-o", str(source), direct_url]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
         if not source.exists() or source.stat().st_size < 10_000:
-            raise RuntimeError(f"Download failed: {((proc.stderr or '') + (proc.stdout or ''))[-800:]}")
+            if youtube_url:
+                # Fallback to direct progressive stream which does not trigger adaptive stream challenges
+                cmd_fallback = ["yt-dlp", "-f", "18/22/b",
+                                "--extractor-args", "youtube:player_client=android,web",
+                                "-o", str(source), youtube_url]
+                proc = subprocess.run(cmd_fallback, capture_output=True, text=True, timeout=1800)
+            if not source.exists() or source.stat().st_size < 10_000:
+                raise RuntimeError(f"Download failed: {((proc.stderr or '') + (proc.stdout or ''))[-800:]}")
 
     # Extract clean mono 16kHz speech track for Whisper
     audio = path / "audio.wav"

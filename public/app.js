@@ -286,6 +286,33 @@ function renderReviewStudio(job) {
   const speakerVoices = job.speakerVoices || {};
   const speakersMeta = job.speakersMeta || {};
 
+  // Render Video Focus & Context Banner
+  const contextBanner = document.getElementById('dubContextBanner');
+  const contextGenreBadge = document.getElementById('dubContextGenreBadge');
+  const contextTone = document.getElementById('dubContextTone');
+  const contextSummary = document.getElementById('dubContextSummary');
+  if (contextBanner) {
+    if (job.context && job.context.summary) {
+      contextBanner.hidden = false;
+      const genreIcons = {
+        'Documentary': '🎥',
+        'Movie / Drama': '🎬',
+        'Podcast / Interview': '🎙️',
+        'News Broadcast': '📰',
+        'Educational / Explainer': '📚',
+        'Comedy / Entertainment': '🎭',
+        'Vlog / Lifestyle': '📹',
+        'Sports / Commentary': '⚽',
+      };
+      const icon = genreIcons[job.context.genre] || '🎬';
+      if (contextGenreBadge) contextGenreBadge.textContent = `${icon} ${job.context.genre || 'Video'}`;
+      if (contextTone) contextTone.textContent = job.context.overallTone ? `Tone: ${job.context.overallTone}` : '';
+      if (contextSummary) contextSummary.textContent = job.context.summary || '';
+    } else {
+      contextBanner.hidden = true;
+    }
+  }
+
   // Find all unique speakers from metadata and segments
   const speakers = [...new Set([
     ...Object.keys(speakersMeta),

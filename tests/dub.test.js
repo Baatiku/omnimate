@@ -206,4 +206,10 @@ test('autoAssignSpeakerVoices matches visual demographic age tiers correctly', (
   assert.equal(new Set(Object.values(assigned)).size, 4);
 });
 
+test('analyzeVideoContext is exported and callable', async () => {
+  const { analyzeVideoContext } = await import('../lib/gemini.js');
+  assert.equal(typeof analyzeVideoContext, 'function');
+});
+
+
 
