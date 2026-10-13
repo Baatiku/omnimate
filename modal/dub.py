@@ -37,7 +37,7 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git", "wget", "nodejs")
     .pip_install("fastapi==0.110.3", "python-multipart==0.0.9",
-                 "yt-dlp[default]", "faster-whisper", "numpy", "scipy", "scikit-learn")
+                 "yt-dlp>=2026.8.19", "faster-whisper", "numpy", "scipy", "scikit-learn")
 )
 
 jobs = modal.Volume.from_name("omnimate-dub-jobs", create_if_missing=True)
@@ -228,25 +228,37 @@ def cluster_speakers(segment_feats: list) -> tuple[list[int], int]:
     return [int(lbl) for lbl in best_labels], best_k
 
 
-def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str, direct_source: bool = False) -> tuple[list, dict]:
+def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str,
+              direct_source: bool = False, cookies_path: Path | None = None) -> tuple[list, dict]:
     """Download or ingest video, extract audio, separate background M&E, and transcribe with acoustic speaker diarization."""
     source = path / "source.mp4"
     if not direct_source:
         if youtube_url:
-            cmd = ["yt-dlp", "-f", "bv*[height<=720]+ba/b[height<=720]/b",
-                   "--extractor-args", "youtube:player_client=android,ios,web",
-                   "--merge-output-format", "mp4", "-o", str(source), youtube_url]
+            cmd = ["yt-dlp", "-f", "bv*[height<=720]+ba/bv*+ba/b[height<=720]/b/best",
+                   "--js-runtimes", "node",
+                   "--geo-bypass",
+                   "--extractor-args", "youtube:player_client=mweb,ios,android,web",
+                   "--merge-output-format", "mp4"]
+            if cookies_path and cookies_path.exists():
+                cmd.extend(["--cookies", str(cookies_path)])
+            cmd.extend(["-o", str(source), youtube_url])
         else:
-            cmd = ["yt-dlp", "-f", "b", "--merge-output-format", "mp4",
-                   "--extractor-args", "generic:impersonate=chrome",
-                   "-o", str(source), direct_url]
+            cmd = ["yt-dlp", "-f", "b/best", "--merge-output-format", "mp4",
+                   "--extractor-args", "generic:impersonate=chrome"]
+            if cookies_path and cookies_path.exists():
+                cmd.extend(["--cookies", str(cookies_path)])
+            cmd.extend(["-o", str(source), direct_url])
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
         if not source.exists() or source.stat().st_size < 10_000:
             if youtube_url:
-                # Fallback to direct progressive stream which does not trigger adaptive stream challenges
-                cmd_fallback = ["yt-dlp", "-f", "18/22/b",
-                                "--extractor-args", "youtube:player_client=android,web",
-                                "-o", str(source), youtube_url]
+                # Fallback to direct progressive stream or alternative player client
+                cmd_fallback = ["yt-dlp", "-f", "18/22/b/best",
+                                "--js-runtimes", "node",
+                                "--geo-bypass",
+                                "--extractor-args", "youtube:player_client=mweb,android,web"]
+                if cookies_path and cookies_path.exists():
+                    cmd_fallback.extend(["--cookies", str(cookies_path)])
+                cmd_fallback.extend(["-o", str(source), youtube_url])
                 proc = subprocess.run(cmd_fallback, capture_output=True, text=True, timeout=1800)
             if not source.exists() or source.stat().st_size < 10_000:
                 raise RuntimeError(f"Download failed: {((proc.stderr or '') + (proc.stdout or ''))[-800:]}")
@@ -332,6 +344,7 @@ def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str, dire
         med_pitch = float(np.median(pitches)) if pitches else 140.0
         gender = "Female" if med_pitch >= 165.0 else "Male"
         # Extract a clean scene keyframe centered on the speaker's longest utterance
+        sample_seg = max(spk_segs, key=lambda s: s["end"] - s["start"]) if spk_segs else {"start": 0.0, "end": 1.0, "i": 0}
         mid_sec = max(0.0, round((sample_seg["start"] + sample_seg["end"]) / 2.0, 2))
         frame_file = f"frame_{spk_id}.jpg"
         frame_path = path / frame_file
@@ -516,6 +529,8 @@ def dub_app():
         direct_url = str(form.get("direct_url") or "").strip()
         src_lang = str(form.get("src_lang") or "en").strip() or "en"
         video_upload = form.get("video_file")
+        cookies_file = form.get("cookies_file")
+        cookies_text = str(form.get("cookies_text") or "").strip()
 
         if not youtube_url and not direct_url and not video_upload:
             return JSONResponse({"error": "Give a YouTube link, a direct video link, or upload a video file."},
@@ -531,13 +546,24 @@ def dub_app():
         job_id = f"dub_{uuid.uuid4().hex[:12]}"
         path = _job_path(job_id)
         path.mkdir(parents=True, exist_ok=True)
+
+        cookies_path = None
+        if cookies_file and hasattr(cookies_file, "read"):
+            cdata = await cookies_file.read()
+            if cdata and len(cdata) > 10:
+                cookies_path = path / "cookies.txt"
+                cookies_path.write_bytes(cdata)
+        elif cookies_text and len(cookies_text) > 10:
+            cookies_path = path / "cookies.txt"
+            cookies_path.write_text(cookies_text, encoding="utf-8")
+
         try:
             if video_upload and hasattr(video_upload, "read"):
                 source = path / "source.mp4"
                 source.write_bytes(await video_upload.read())
                 segments, speakers_meta = do_source(path, "", "", src_lang, direct_source=True)
             else:
-                segments, speakers_meta = do_source(path, youtube_url, direct_url, src_lang)
+                segments, speakers_meta = do_source(path, youtube_url, direct_url, src_lang, cookies_path=cookies_path)
         except Exception as error:
             return JSONResponse({"error": str(error)[:500]}, status_code=500)
         return {"job_id": job_id, "segments": segments, "speakers": speakers_meta,
@@ -546,6 +572,7 @@ def dub_app():
     @web.get("/segments/{job_id}")
     async def segments(job_id: str):
         try:
+            jobs.reload()
             raw = json.loads((_job_path(job_id) / "segments.json").read_text())
             if isinstance(raw, dict) and "segments" in raw:
                 segs = raw["segments"]
@@ -560,6 +587,7 @@ def dub_app():
 
     @web.get("/sample/{job_id}/{segment_i}")
     async def sample(job_id: str, segment_i: int):
+        jobs.reload()
         path = _job_path(job_id)
         audio_path = path / "audio.wav"
         segs_path = path / "segments.json"
@@ -592,6 +620,10 @@ def dub_app():
 
     @web.get("/frame/{job_id}/{speaker_id}")
     async def frame(job_id: str, speaker_id: str):
+        try:
+            jobs.reload()
+        except Exception:
+            pass
         path = _job_path(job_id)
         safe_spk = re.sub(r"[^A-Za-z0-9_-]", "", speaker_id)
         target = path / f"frame_{safe_spk}.jpg"

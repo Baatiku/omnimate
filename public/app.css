@@ -196,6 +196,61 @@ button.ghost-sm:hover { background: var(--panel); border-color: var(--accent); }
 .context-tone-text { font-size: 11px; color: #a4b8d1; font-style: italic; }
 .context-summary-text { font-size: 12px; color: var(--text); line-height: 1.45; margin: 0; }
 
+.cookie-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #080d15;
+  border: 1px solid #162234;
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin: -2px 0 6px 0;
+  font-size: 11.5px;
+}
+.cookie-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #9cb2cf;
+  font-weight: 500;
+}
+.cookie-status-indicator.ready {
+  color: #6ee7b7;
+}
+.cookie-status-indicator.error {
+  color: #fca5a5;
+}
+.cookie-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cookie-btn {
+  background: #111a28;
+  border: 1px solid #23354f;
+  color: #c5d7ed;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.cookie-btn:hover {
+  background: #19273c;
+  color: #fff;
+  border-color: #3b5a84;
+}
+.cookie-upload-label {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+
 
 
 

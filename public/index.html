@@ -77,6 +77,16 @@
           <section class="card">
             <h2><span class="step">1</span>Your video</h2>
             <input id="dubUrl" type="url" placeholder="YouTube link — https://www.youtube.com/watch?v=…" />
+            <div class="cookie-status-bar" id="cookieStatusBar">
+              <span class="cookie-status-indicator" id="cookieStatusText">🍪 Checking YouTube Cookies…</span>
+              <div class="cookie-actions">
+                <button type="button" class="cookie-btn" id="cookieAutoBtn" title="Auto-detect &amp; extract from local browser">Auto-Connect Browser</button>
+                <label class="cookie-btn cookie-upload-label" title="Upload a cookies.txt file exported from browser">
+                  Upload cookies.txt
+                  <input type="file" id="cookieFileInput" accept=".txt" hidden />
+                </label>
+              </div>
+            </div>
             <input id="dubDirect" type="url" placeholder="Or direct file link — https://…/video.mp4" />
             <div class="file-upload-row">
               <label for="dubFile" class="file-label">Or upload video file: </label>
@@ -93,7 +103,9 @@
                 <option value="ar">Arabic</option>
                 <option value="es">Spanish</option>
               </select>
-              <select id="dubVoice" aria-label="Default Voice"><option>Loading…</option></select>
+              <select id="dubVoice" aria-label="Voice Casting Mode">
+                <option value="auto" selected>✨ Auto-Cast Voices (Face, Age &amp; Gender AI)</option>
+              </select>
               <select id="dubMode" aria-label="Workflow Mode">
                 <option value="review" selected>Review &amp; Edit first (Recommended)</option>
                 <option value="auto">1-Click Auto Dub</option>

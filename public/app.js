@@ -217,8 +217,25 @@ async function loadVoices() {
     }
     voiceSelect.value = 'Fola';
     if (dubVoiceSelect) {
-      dubVoiceSelect.innerHTML = voiceSelect.innerHTML;
-      dubVoiceSelect.value = 'Fola';
+      dubVoiceSelect.innerHTML = '';
+      const autoOption = document.createElement('option');
+      autoOption.value = 'auto';
+      autoOption.textContent = '✨ Auto-Cast Voices (Face & Age AI)';
+      autoOption.selected = true;
+      dubVoiceSelect.appendChild(autoOption);
+
+      for (const gender of ['Female', 'Male']) {
+        const group = document.createElement('optgroup');
+        group.label = gender === 'Female' ? 'Force Female Voice (Solo Narrator)' : 'Force Male Voice (Solo Narrator)';
+        for (const voice of voices.filter((v) => v.gender === gender)) {
+          const option = document.createElement('option');
+          option.value = voice.name;
+          option.textContent = `${voice.name} — ${voice.style}`;
+          group.appendChild(option);
+        }
+        dubVoiceSelect.appendChild(group);
+      }
+      dubVoiceSelect.value = 'auto';
     }
   } catch {
     voiceSelect.innerHTML = '<option>Fola</option>';
@@ -1068,3 +1085,75 @@ refreshRecent();
 refreshRecentDubs();
 loadVoices();
 loadDubLangs();
+loadCookiesStatus();
+
+async function loadCookiesStatus() {
+  const cookieStatusText = document.getElementById('cookieStatusText');
+  const cookieAutoBtn = document.getElementById('cookieAutoBtn');
+  const cookieFileInput = document.getElementById('cookieFileInput');
+  if (!cookieStatusText) return;
+
+  try {
+    const res = await fetch('/api/cookies');
+    const data = await res.json();
+    if (data.configured) {
+      cookieStatusText.textContent = `🍪 Cookies Connected (${data.source} • ${data.size} B)`;
+      cookieStatusText.className = 'cookie-status-indicator ready';
+    } else {
+      cookieStatusText.textContent = '🍪 No YouTube Cookies (Auto-extract available)';
+      cookieStatusText.className = 'cookie-status-indicator';
+    }
+  } catch {
+    cookieStatusText.textContent = '🍪 Cookies Ready';
+  }
+
+  if (cookieAutoBtn && !cookieAutoBtn.dataset.wired) {
+    cookieAutoBtn.dataset.wired = 'true';
+    cookieAutoBtn.addEventListener('click', async () => {
+      cookieStatusText.textContent = '🍪 Extracting from local browser…';
+      cookieStatusText.className = 'cookie-status-indicator';
+      try {
+        const res = await fetch('/api/cookies/auto-detect', { method: 'POST' });
+        const result = await res.json();
+        if (result.success) {
+          cookieStatusText.textContent = `🍪 Connected to ${result.source}!`;
+          cookieStatusText.className = 'cookie-status-indicator ready';
+        } else {
+          cookieStatusText.textContent = `⚠️ Extraction failed: ${result.error || 'Check browser'}`;
+          cookieStatusText.className = 'cookie-status-indicator error';
+        }
+      } catch (err) {
+        cookieStatusText.textContent = `⚠️ Error: ${err.message}`;
+        cookieStatusText.className = 'cookie-status-indicator error';
+      }
+    });
+  }
+
+  if (cookieFileInput && !cookieFileInput.dataset.wired) {
+    cookieFileInput.dataset.wired = 'true';
+    cookieFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      cookieStatusText.textContent = '🍪 Uploading cookies.txt…';
+      try {
+        const text = await file.text();
+        const res = await fetch('/api/cookies/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cookiesText: text }),
+        });
+        const result = await res.json();
+        if (result.success) {
+          cookieStatusText.textContent = `🍪 cookies.txt uploaded (${result.size} B)`;
+          cookieStatusText.className = 'cookie-status-indicator ready';
+        } else {
+          cookieStatusText.textContent = `⚠️ Upload failed: ${result.error || 'Invalid file'}`;
+          cookieStatusText.className = 'cookie-status-indicator error';
+        }
+      } catch (err) {
+        cookieStatusText.textContent = `⚠️ Error: ${err.message}`;
+        cookieStatusText.className = 'cookie-status-indicator error';
+      }
+    });
+  }
+}

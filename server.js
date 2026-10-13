@@ -18,6 +18,7 @@ import {
   DUB_TARGET_LANGS,
 } from './lib/dub.js';
 import { generateSrt, generateVtt } from './lib/audio.js';
+import { getCookiesStatus, autoDetectCookies, saveCookies, clearCookies, extractBrowserCookies } from './lib/cookies.js';
 import {
   validatePresenterCreate,
   validateScriptPrompt,
@@ -201,6 +202,34 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/dub-langs') {
       return json(res, 200, DUB_TARGET_LANGS);
+    }
+
+    if (req.method === 'GET' && pathname === '/api/cookies') {
+      return json(res, 200, await getCookiesStatus());
+    }
+
+    if (req.method === 'POST' && pathname === '/api/cookies/extract') {
+      const body = await readJson(req).catch(() => ({}));
+      const result = await extractBrowserCookies(body.browser || 'firefox');
+      return json(res, result.success ? 200 : 400, result);
+    }
+
+    if (req.method === 'POST' && pathname === '/api/cookies/auto-detect') {
+      const result = await autoDetectCookies();
+      return json(res, result.success ? 200 : 400, result);
+    }
+
+    if (req.method === 'POST' && pathname === '/api/cookies/upload') {
+      const body = await readJson(req).catch(() => ({}));
+      const text = String(body.cookiesText || body.text || '').trim();
+      if (!text) return json(res, 400, { error: 'No cookies text provided.' });
+      const result = await saveCookies(text);
+      return json(res, 200, result);
+    }
+
+    if (req.method === 'DELETE' && pathname === '/api/cookies') {
+      await clearCookies();
+      return json(res, 200, { success: true });
     }
 
     if (req.method === 'GET' && pathname === '/api/dubs') {
