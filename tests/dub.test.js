@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateDubCreate, placeSegments, DUB_TARGET_LANGS, autoAssignSpeakerVoices, FEMALE_VOICES, MALE_VOICES } from '../lib/dub.js';
+import { validateDubCreate, placeSegments, DUB_TARGET_LANGS, autoAssignSpeakerVoices, FEMALE_VOICES, MALE_VOICES, FEMALE_VOICE_TIERS, MALE_VOICE_TIERS } from '../lib/dub.js';
 
 test('dub validation needs one link and picks Hausa by default', () => {
   const input = validateDubCreate({ youtubeUrl: 'https://www.youtube.com/watch?v=abc123', voice: 'Fola' });
@@ -167,4 +167,43 @@ test('voice catalog lists 9 females and 21 males totaling 30 modern Google voice
   assert.ok(MALE_VOICES.includes('Koda'));
   assert.ok(MALE_VOICES.includes('Brio'));
 });
+
+test('autoAssignSpeakerVoices matches visual demographic age tiers correctly', () => {
+  const speakersMeta = {
+    speaker_0: { id: 'speaker_0', gender: 'Female', ageGroup: 'Child', estimatedAge: '7' },
+    speaker_1: { id: 'speaker_1', gender: 'Male', ageGroup: 'Child', estimatedAge: '9' },
+    speaker_2: { id: 'speaker_2', gender: 'Female', ageGroup: 'Senior', estimatedAge: '68' },
+    speaker_3: { id: 'speaker_3', gender: 'Male', ageGroup: 'Senior', estimatedAge: '72' },
+  };
+
+  const assigned = autoAssignSpeakerVoices(speakersMeta, Object.keys(speakersMeta));
+
+  // Child female must get a youthful female voice from FEMALE_VOICE_TIERS.Child
+  assert.ok(
+    FEMALE_VOICE_TIERS.Child.includes(assigned.speaker_0),
+    `Girl child should receive child voice (Lumi/Nika/Cleo), got ${assigned.speaker_0}`
+  );
+
+  // Child male must get a youthful male voice from MALE_VOICE_TIERS.Child
+  assert.ok(
+    MALE_VOICE_TIERS.Child.includes(assigned.speaker_1),
+    `Boy child should receive child voice (Finn/Arlo/Jett/Tavi), got ${assigned.speaker_1}`
+  );
+
+  // Senior female must get a mature female voice from FEMALE_VOICE_TIERS.Senior
+  assert.ok(
+    FEMALE_VOICE_TIERS.Senior.includes(assigned.speaker_2),
+    `Senior woman should receive senior voice (Enya/Tova/Kira), got ${assigned.speaker_2}`
+  );
+
+  // Senior male must get a mature male voice from MALE_VOICE_TIERS.Senior
+  assert.ok(
+    MALE_VOICE_TIERS.Senior.includes(assigned.speaker_3),
+    `Senior man should receive senior voice (Daro/Sami/Gero/Neno/Olin/Knox), got ${assigned.speaker_3}`
+  );
+
+  // All 4 speakers must have distinct voices without collision
+  assert.equal(new Set(Object.values(assigned)).size, 4);
+});
+
 

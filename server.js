@@ -381,6 +381,51 @@ const server = http.createServer(async (req, res) => {
       return json(res, 404, { error: 'Sample audio unavailable.' });
     }
 
+    const dubFaceImageMatch = pathname.match(/^\/api\/dubs\/([a-zA-Z0-9_-]+)\/face\/([a-zA-Z0-9_-]+)(?:\.jpg)?$/);
+    if (req.method === 'GET' && dubFaceImageMatch) {
+      const id = dubFaceImageMatch[1];
+      const speakerId = dubFaceImageMatch[2];
+      const job = await loadJob(id);
+      if (!job) return json(res, 404, { error: 'Dub not found.' });
+
+      const safeSpk = speakerId.replace(/[^A-Za-z0-9_-]/g, '');
+      const pDir = projectDir(id);
+      const cachedFile = path.join(pDir, `face_${safeSpk}.jpg`);
+      try {
+        const stat = await fsp.stat(cachedFile);
+        res.writeHead(200, {
+          'content-type': 'image/jpeg',
+          'content-length': stat.size,
+          'cache-control': 'public, max-age=3600',
+        });
+        return fs.createReadStream(cachedFile).pipe(res);
+      } catch {}
+
+      // Proxy from Modal worker if remoteJobId exists
+      if (job.remoteJobId && config.modalDubUrl) {
+        const modalUrl = `${config.modalDubUrl.replace(/\/+$/, '')}/frame/${encodeURIComponent(job.remoteJobId)}/${encodeURIComponent(safeSpk)}`;
+        try {
+          const proxyRes = await fetch(modalUrl);
+          if (!proxyRes.ok) {
+            return json(res, proxyRes.status, { error: 'Speaker face frame not found on worker.' });
+          }
+          const buf = Buffer.from(await proxyRes.arrayBuffer());
+          await fsp.mkdir(pDir, { recursive: true });
+          await fsp.writeFile(cachedFile, buf).catch(() => {});
+          res.writeHead(200, {
+            'content-type': 'image/jpeg',
+            'content-length': buf.length,
+            'cache-control': 'public, max-age=3600',
+          });
+          return res.end(buf);
+        } catch (err) {
+          return json(res, 502, { error: `Worker error: ${err.message}` });
+        }
+      }
+
+      return json(res, 404, { error: 'Speaker face image unavailable.' });
+    }
+
     const dubRenderMatch = pathname.match(/^\/api\/dubs\/([a-zA-Z0-9_-]+)\/render$/);
     if (req.method === 'POST' && dubRenderMatch) {
       const id = dubRenderMatch[1];

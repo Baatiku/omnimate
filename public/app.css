@@ -164,4 +164,31 @@ button.ghost-sm:hover { background: var(--panel); border-color: var(--accent); }
 .segment-gender-indicator.female { color: #ff85be; background: #2f1225; border: 1px solid #751a4f; }
 .segment-gender-indicator.male { color: #7cb8ff; background: #111e33; border: 1px solid #1e4585; }
 
+/* Speaker Avatar & Demographic UI */
+.speaker-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.speaker-header-left { display: flex; align-items: center; gap: 10px; }
+.speaker-avatar-wrap { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; background: #131822; border: 2px solid #232d3f; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+.speaker-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.speaker-avatar-fallback { font-size: 22px; line-height: 1; user-select: none; }
+
+.speaker-header-meta { display: flex; flex-direction: column; gap: 3px; }
+.speaker-header-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 2px; }
+
+.age-badge { padding: 2px 7px; border-radius: 6px; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px; }
+.age-badge.child { background: #2b1f09; color: #ffd166; border: 1px solid #7a5813; }
+.age-badge.teen { background: #0c2621; color: #06d6a0; border: 1px solid #14614e; }
+.age-badge.young-adult { background: #111e33; color: #7cb8ff; border: 1px solid #1e4585; }
+.age-badge.adult { background: #141b29; color: #9bb7d4; border: 1px solid #24354e; }
+.age-badge.senior { background: #26162d; color: #d09cf5; border: 1px solid #64317d; }
+
+.expression-badge { padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 600; background: #121720; color: #a4b3c6; border: 1px solid #202b3a; display: inline-flex; align-items: center; gap: 3px; }
+
+.speaker-card-prompt-row { display: grid; gap: 3px; margin-top: 3px; }
+.speaker-acting-prompt-input { background: #07090e; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px 9px; font-size: 11px; font-family: inherit; width: 100%; box-sizing: border-box; }
+.speaker-acting-prompt-input:focus { border-color: var(--accent); outline: none; }
+
+.segment-speaker-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; vertical-align: middle; border: 1px solid #2b3648; display: inline-block; margin-right: 4px; }
+.segment-age-tag { font-size: 10.5px; margin-left: 4px; opacity: 0.85; }
+
+
 

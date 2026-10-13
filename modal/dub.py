@@ -323,8 +323,19 @@ def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str, dire
         pitches = [s["pitch_hz"] for s in spk_segs if s.get("pitch_hz", 0) > 0]
         med_pitch = float(np.median(pitches)) if pitches else 140.0
         gender = "Female" if med_pitch >= 165.0 else "Male"
-        # Representative sample is the longest clean speech segment of this speaker
-        sample_seg = max(spk_segs, key=lambda x: (x["end"] - x["start"]))
+        # Extract a clean scene keyframe centered on the speaker's longest utterance
+        mid_sec = max(0.0, round((sample_seg["start"] + sample_seg["end"]) / 2.0, 2))
+        frame_file = f"frame_{spk_id}.jpg"
+        frame_path = path / frame_file
+        try:
+            subprocess.run([
+                "ffmpeg", "-y", "-v", "error", "-ss", f"{mid_sec:.2f}",
+                "-i", str(source), "-vframes", "1", "-q:v", "2",
+                str(frame_path)
+            ], timeout=30)
+        except Exception:
+            pass
+
         speakers_meta[spk_id] = {
             "id": spk_id,
             "gender": gender,
@@ -332,6 +343,8 @@ def do_source(path: Path, youtube_url: str, direct_url: str, src_lang: str, dire
             "sample_seg_i": sample_seg["i"],
             "count": len(spk_segs),
             "total_sec": round(sum(s["end"] - s["start"] for s in spk_segs), 1),
+            "keyframe_sec": mid_sec,
+            "has_frame": frame_path.exists(),
         }
 
     (path / "segments.json").write_text(json.dumps({"segments": segments, "speakers": speakers_meta}, ensure_ascii=False))
@@ -568,6 +581,15 @@ def dub_app():
             return Response(content=buf.getvalue(), media_type="audio/wav")
         except Exception as e:
             return Response(content=str(e), status_code=500)
+
+    @web.get("/frame/{job_id}/{speaker_id}")
+    async def frame(job_id: str, speaker_id: str):
+        path = _job_path(job_id)
+        safe_spk = re.sub(r"[^A-Za-z0-9_-]", "", speaker_id)
+        target = path / f"frame_{safe_spk}.jpg"
+        if not target.exists():
+            return Response(content="Frame not found", status_code=404)
+        return FileResponse(str(target), media_type="image/jpeg")
 
     @web.post("/assemble/{job_id}")
     async def assemble(job_id: str, request: Request):

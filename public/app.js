@@ -308,21 +308,81 @@ function renderReviewStudio(job) {
     card.className = 'speaker-card';
     card.id = `speaker-card-${spk}`;
 
-    // Card Header: Speaker Name + Gender Badge
+    const ageGroup = meta.ageGroup || 'Adult';
+    const estimatedAge = meta.estimatedAge || '';
+    const expression = meta.expression || '';
+
+    // Card Header: Avatar Thumbnail + Speaker Name + Demographic Badges
     const header = document.createElement('div');
     header.className = 'speaker-card-header';
+
+    const headerLeft = document.createElement('div');
+    headerLeft.className = 'speaker-header-left';
+
+    const avatarWrap = document.createElement('div');
+    avatarWrap.className = 'speaker-avatar-wrap';
+
+    const fallbackEmoji = document.createElement('span');
+    fallbackEmoji.className = 'speaker-avatar-fallback';
+    fallbackEmoji.textContent = ageGroup === 'Child'
+      ? (gender === 'Female' ? '👧' : '👦')
+      : ageGroup === 'Senior'
+        ? (gender === 'Female' ? '👵' : '👴')
+        : (gender === 'Female' ? '👩' : '👨');
+
+    const avatarImg = document.createElement('img');
+    avatarImg.className = 'speaker-avatar-img';
+    avatarImg.alt = spk;
+    avatarImg.src = `/api/dubs/${encodeURIComponent(job.id)}/face/${encodeURIComponent(spk)}.jpg`;
+    avatarImg.onerror = () => {
+      avatarImg.style.display = 'none';
+      fallbackEmoji.style.display = 'inline-block';
+    };
+    avatarImg.onload = () => {
+      fallbackEmoji.style.display = 'none';
+    };
+
+    avatarWrap.appendChild(fallbackEmoji);
+    avatarWrap.appendChild(avatarImg);
+    headerLeft.appendChild(avatarWrap);
+
+    const metaCol = document.createElement('div');
+    metaCol.className = 'speaker-header-meta';
 
     const title = document.createElement('span');
     title.className = 'speaker-card-title';
     title.textContent = spk.replace('_', ' ').toUpperCase();
+    metaCol.appendChild(title);
+
+    const badgesWrap = document.createElement('div');
+    badgesWrap.className = 'speaker-header-badges';
 
     const genderBadge = document.createElement('span');
     genderBadge.className = `gender-badge ${gender.toLowerCase()}`;
     genderBadge.textContent = gender === 'Female' ? `♀ Female${pitchText}` : `♂ Male${pitchText}`;
-    genderBadge.title = `Estimated from acoustic pitch${pitchText}`;
+    genderBadge.title = meta.faceDetected ? 'Visual and acoustic detection' : `Acoustic pitch${pitchText}`;
+    badgesWrap.appendChild(genderBadge);
 
-    header.appendChild(title);
-    header.appendChild(genderBadge);
+    const ageBadge = document.createElement('span');
+    const ageClass = ageGroup.toLowerCase().replace(/\s+/g, '-');
+    ageBadge.className = `age-badge ${ageClass}`;
+    const ageIcon = ageGroup === 'Child' ? '👶' : ageGroup === 'Teen' ? '🧑' : ageGroup === 'Senior' ? '🧓' : '👤';
+    const ageText = estimatedAge && estimatedAge !== 'Off-screen' && estimatedAge !== 'Unknown'
+      ? `${ageIcon} ${ageGroup} (~${estimatedAge})`
+      : `${ageIcon} ${ageGroup}`;
+    ageBadge.textContent = ageText;
+    badgesWrap.appendChild(ageBadge);
+
+    if (expression && expression !== 'neutral') {
+      const exprBadge = document.createElement('span');
+      exprBadge.className = 'expression-badge';
+      exprBadge.textContent = `😊 ${expression}`;
+      badgesWrap.appendChild(exprBadge);
+    }
+
+    metaCol.appendChild(badgesWrap);
+    headerLeft.appendChild(metaCol);
+    header.appendChild(headerLeft);
     card.appendChild(header);
 
     // Stats line
@@ -367,6 +427,30 @@ function renderReviewStudio(job) {
     selectRow.appendChild(selectLabel);
     selectRow.appendChild(select);
     card.appendChild(selectRow);
+
+    // Vocal Performance Direction / Tone Prompt Row
+    const promptRow = document.createElement('div');
+    promptRow.className = 'speaker-card-prompt-row';
+
+    const promptLabel = document.createElement('label');
+    promptLabel.className = 'speaker-card-select-label';
+    promptLabel.textContent = 'Acting Direction (Gemini TTS):';
+
+    const promptInput = document.createElement('input');
+    promptInput.type = 'text';
+    promptInput.className = 'speaker-acting-prompt-input';
+    promptInput.value = meta.vocalActingPrompt || '';
+    promptInput.placeholder = 'e.g. Young child voice, energetic, playful tone...';
+    promptInput.title = 'Vocal acting instructions sent to Gemini Live TTS for all lines spoken by this character';
+    promptInput.addEventListener('change', () => {
+      if (!currentReviewJob.speakersMeta) currentReviewJob.speakersMeta = {};
+      if (!currentReviewJob.speakersMeta[spk]) currentReviewJob.speakersMeta[spk] = {};
+      currentReviewJob.speakersMeta[spk].vocalActingPrompt = promptInput.value.trim();
+    });
+
+    promptRow.appendChild(promptLabel);
+    promptRow.appendChild(promptInput);
+    card.appendChild(promptRow);
 
     // Action Row: Listen to original speaker audio from the video clip
     const actionRow = document.createElement('div');
@@ -479,13 +563,34 @@ function renderReviewStudio(job) {
     for (const spk of speakers) {
       const opt = document.createElement('option');
       opt.value = spk;
-      opt.textContent = spk.replace('_', ' ').toUpperCase();
+      const spkMeta = speakersMeta[spk] || {};
+      const ageTag = spkMeta.ageGroup ? ` [${spkMeta.ageGroup}]` : '';
+      opt.textContent = `${spk.replace('_', ' ').toUpperCase()}${ageTag}`;
       if ((seg.speaker || 'speaker_0') === spk) opt.selected = true;
       spkSelect.appendChild(opt);
     }
 
+    const spkWrap = document.createElement('div');
+    spkWrap.style.display = 'inline-flex';
+    spkWrap.style.alignItems = 'center';
+    spkWrap.style.gap = '6px';
+
+    const segSpkAvatar = document.createElement('img');
+    segSpkAvatar.className = 'segment-speaker-avatar';
+    segSpkAvatar.alt = seg.speaker || 'speaker_0';
+    segSpkAvatar.src = `/api/dubs/${encodeURIComponent(job.id)}/face/${encodeURIComponent(seg.speaker || 'speaker_0')}.jpg`;
+    segSpkAvatar.onerror = () => { segSpkAvatar.style.display = 'none'; };
+
+    spkSelect.addEventListener('change', () => {
+      segSpkAvatar.src = `/api/dubs/${encodeURIComponent(job.id)}/face/${encodeURIComponent(spkSelect.value)}.jpg`;
+      segSpkAvatar.style.display = 'inline-block';
+    });
+
+    spkWrap.appendChild(segSpkAvatar);
+    spkWrap.appendChild(spkSelect);
+
     header.appendChild(badges);
-    header.appendChild(spkSelect);
+    header.appendChild(spkWrap);
     card.appendChild(header);
 
     const srcDiv = document.createElement('div');
