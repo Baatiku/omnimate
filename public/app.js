@@ -466,6 +466,19 @@ function renderReviewStudio(job) {
     select.addEventListener('change', () => {
       if (!currentReviewJob.speakerVoices) currentReviewJob.speakerVoices = {};
       currentReviewJob.speakerVoices[spk] = select.value;
+      const vObj = cachedVoices.find((v) => v.name === select.value);
+      if (vObj) {
+        if (!currentReviewJob.speakersMeta) currentReviewJob.speakersMeta = {};
+        if (!currentReviewJob.speakersMeta[spk]) currentReviewJob.speakersMeta[spk] = {};
+        currentReviewJob.speakersMeta[spk].gender = vObj.gender;
+        currentReviewJob.speakersMeta[spk].voice = vObj.name;
+        genderBadge.className = `gender-badge ${vObj.gender.toLowerCase()}`;
+        genderBadge.textContent = vObj.gender === 'Female' ? `♀ Female${pitchText}` : `♂ Male${pitchText}`;
+        fallbackEmoji.textContent = vObj.gender === 'Female' ? '👩' : '👨';
+      }
+      for (const seg of (currentReviewJob.segmentsData || [])) {
+        if ((seg.speaker || 'speaker_0') === spk) seg.voice = select.value;
+      }
     });
 
     selectRow.appendChild(selectLabel);
@@ -496,7 +509,7 @@ function renderReviewStudio(job) {
     promptRow.appendChild(promptInput);
     card.appendChild(promptRow);
 
-    // Action Row: Listen to original speaker audio from the video clip
+    // Action Row: Listen to original speaker audio from the video clip & Merge Speaker option
     const actionRow = document.createElement('div');
     actionRow.className = 'speaker-card-actions';
 
@@ -534,6 +547,29 @@ function renderReviewStudio(job) {
     });
 
     actionRow.appendChild(listenBtn);
+
+    if (spk !== 'speaker_0') {
+      const mergeBtn = document.createElement('button');
+      mergeBtn.type = 'button';
+      mergeBtn.className = 'speaker-merge-btn';
+      mergeBtn.innerHTML = '🔗 Merge into Speaker 0';
+      mergeBtn.title = 'Merge all lines from this speaker into Speaker 0 (useful if one presenter was detected from different camera angles/distances)';
+      mergeBtn.addEventListener('click', () => {
+        if (!confirm(`Merge all lines from ${spk.replace('_', ' ').toUpperCase()} into SPEAKER 0?`)) return;
+        for (const seg of (currentReviewJob.segmentsData || [])) {
+          if ((seg.speaker || 'speaker_0') === spk) {
+            seg.speaker = 'speaker_0';
+            seg.voice = currentReviewJob.speakerVoices?.speaker_0 || currentReviewJob.voice || 'Charon';
+          }
+        }
+        if (currentReviewJob.speakersMeta) delete currentReviewJob.speakersMeta[spk];
+        if (currentReviewJob.speakerVoices) delete currentReviewJob.speakerVoices[spk];
+        renderReviewStudio(currentReviewJob);
+        setDubStatus(`Merged ${spk.replace('_', ' ').toUpperCase()} into SPEAKER 0. Click 'Approve & Render' when ready.`);
+      });
+      actionRow.appendChild(mergeBtn);
+    }
+
     card.appendChild(actionRow);
     card.appendChild(audioPlayer);
 
@@ -769,10 +805,13 @@ async function collectAndSaveSegments() {
     const textarea = document.querySelector(`textarea[data-seg-i="${seg.i}"]`);
     const spkSelect = document.querySelector(`select[data-seg-speaker="${seg.i}"]`);
     const deliveryInput = document.querySelector(`input[data-seg-delivery="${seg.i}"]`);
+    const assignedSpk = spkSelect ? spkSelect.value : (seg.speaker || 'speaker_0');
+    const assignedVoice = currentReviewJob.speakerVoices?.[assignedSpk] || seg.voice || currentReviewJob.voice || 'Charon';
     return {
       ...seg,
       text: textarea ? textarea.value.trim() : seg.text,
-      speaker: spkSelect ? spkSelect.value : (seg.speaker || 'speaker_0'),
+      speaker: assignedSpk,
+      voice: assignedVoice,
       delivery: deliveryInput ? deliveryInput.value.trim() : (seg.delivery || ''),
     };
   });

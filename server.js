@@ -17,6 +17,7 @@ import {
   previewSegmentAudio,
   DUB_TARGET_LANGS,
 } from './lib/dub.js';
+import { voiceByName } from './lib/voices.js';
 import { generateSrt, generateVtt } from './lib/audio.js';
 import { getCookiesStatus, autoDetectCookies, saveCookies, clearCookies, extractBrowserCookies } from './lib/cookies.js';
 import {
@@ -315,7 +316,24 @@ const server = http.createServer(async (req, res) => {
         await fsp.writeFile(path.join(pDir, 'subtitles.srt'), generateSrt(job.segmentsData, 'text'));
         await fsp.writeFile(path.join(pDir, 'subtitles.vtt'), generateVtt(job.segmentsData, 'text'));
       }
-      if (body.speakerVoices) job.speakerVoices = { ...(job.speakerVoices || {}), ...body.speakerVoices };
+      if (body.speakerVoices) {
+        job.speakerVoices = { ...(job.speakerVoices || {}), ...body.speakerVoices };
+        if (Array.isArray(job.segmentsData)) {
+          for (const seg of job.segmentsData) {
+            const spk = seg.speaker || 'speaker_0';
+            if (job.speakerVoices[spk]) seg.voice = job.speakerVoices[spk];
+          }
+        }
+        if (!job.speakersMeta) job.speakersMeta = {};
+        for (const [spk, voiceName] of Object.entries(job.speakerVoices)) {
+          const vMeta = voiceByName(voiceName);
+          if (vMeta) {
+            if (!job.speakersMeta[spk]) job.speakersMeta[spk] = { id: spk };
+            job.speakersMeta[spk].voice = vMeta.name;
+            job.speakersMeta[spk].gender = vMeta.gender;
+          }
+        }
+      }
       if (body.speakersMeta) job.speakersMeta = { ...(job.speakersMeta || {}), ...body.speakersMeta };
       if (typeof body.bgVolume === 'number') job.bgVolume = body.bgVolume;
       if (typeof body.ducking === 'boolean') job.ducking = body.ducking;
@@ -461,7 +479,24 @@ const server = http.createServer(async (req, res) => {
       const job = await loadJob(id);
       if (!job) return json(res, 404, { error: 'Dub not found.' });
       const body = await readJson(req);
-      if (body.speakerVoices) job.speakerVoices = { ...(job.speakerVoices || {}), ...body.speakerVoices };
+      if (body.speakerVoices) {
+        job.speakerVoices = { ...(job.speakerVoices || {}), ...body.speakerVoices };
+        if (Array.isArray(job.segmentsData)) {
+          for (const seg of job.segmentsData) {
+            const spk = seg.speaker || 'speaker_0';
+            if (job.speakerVoices[spk]) seg.voice = job.speakerVoices[spk];
+          }
+        }
+        if (!job.speakersMeta) job.speakersMeta = {};
+        for (const [spk, voiceName] of Object.entries(job.speakerVoices)) {
+          const vMeta = voiceByName(voiceName);
+          if (vMeta) {
+            if (!job.speakersMeta[spk]) job.speakersMeta[spk] = { id: spk };
+            job.speakersMeta[spk].voice = vMeta.name;
+            job.speakersMeta[spk].gender = vMeta.gender;
+          }
+        }
+      }
       if (typeof body.bgVolume === 'number') job.bgVolume = body.bgVolume;
       if (typeof body.ducking === 'boolean') job.ducking = body.ducking;
       await saveJob(job);

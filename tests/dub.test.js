@@ -234,5 +234,35 @@ test('analyzeVideoContext is exported and callable', async () => {
   assert.equal(typeof analyzeVideoContext, 'function');
 });
 
+test('reassigning speaker voice to Algieba updates segment voices and speaker gender to Male', async () => {
+  const { voiceByName } = await import('../lib/voices.js');
+  const algieba = voiceByName('Algieba');
+  assert.equal(algieba?.gender, 'Male');
+
+  const job = {
+    speakerVoices: { speaker_1: 'Algieba' },
+    speakersMeta: { speaker_1: { id: 'speaker_1', gender: 'Female' } },
+    segmentsData: [
+      { i: 0, speaker: 'speaker_0', voice: 'Bodi' },
+      { i: 1, speaker: 'speaker_1', voice: 'Fola' },
+    ],
+  };
+
+  for (const seg of job.segmentsData) {
+    if (job.speakerVoices[seg.speaker]) seg.voice = job.speakerVoices[seg.speaker];
+  }
+  for (const [spk, voiceName] of Object.entries(job.speakerVoices)) {
+    const vMeta = voiceByName(voiceName);
+    if (vMeta && job.speakersMeta[spk]) {
+      job.speakersMeta[spk].voice = vMeta.name;
+      job.speakersMeta[spk].gender = vMeta.gender;
+    }
+  }
+
+  assert.equal(job.segmentsData[1].voice, 'Algieba');
+  assert.equal(job.speakersMeta.speaker_1.gender, 'Male');
+});
+
+
 
 

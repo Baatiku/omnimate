@@ -179,9 +179,15 @@ def extract_segment_features(samples: np.ndarray, sr: int = 16000) -> dict:
     # Human speech acoustic threshold: adult male pitch typically 85-155 Hz, adult female 165-270 Hz
     gender = "Female" if median_f0 >= 165.0 else "Male"
 
-    # Normalized composite feature: timbre (16) + weighted pitch deviation (1)
-    pitch_feat = (median_f0 - 150.0) / 60.0
-    feature_vec = np.concatenate([mean_fbank, [pitch_feat * 2.0]])
+    # Distance & gain-invariant timbre normalization (Cepstral Mean Subtraction across bands)
+    timbre_norm = mean_fbank - np.mean(mean_fbank)
+    timbre_std = float(np.std(timbre_norm))
+    if timbre_std > 1e-4:
+        timbre_norm = timbre_norm / timbre_std
+
+    # Pitch feature (log2 scale relative to 140 Hz reference to preserve octave ratios)
+    pitch_feat = np.log2(max(50.0, median_f0) / 140.0)
+    feature_vec = np.concatenate([timbre_norm, [pitch_feat * 2.5]])
     return {
         "feature_vec": feature_vec,
         "median_f0": median_f0,
@@ -190,36 +196,60 @@ def extract_segment_features(samples: np.ndarray, sr: int = 16000) -> dict:
 
 
 def cluster_speakers(segment_feats: list) -> tuple[list[int], int]:
-    """Dynamically cluster segments into distinct speaker identities using Agglomerative Clustering."""
+    """
+    Dynamically cluster segments into distinct speaker identities using distance-invariant
+    Agglomerative Clustering. Employs unit-normalized timbre vectors, conservative silhouette
+    thresholds, and pitch-spread gating to prevent single presenters from being split due to
+    mic distance, room reverb, or pacing variations.
+    """
     n = len(segment_feats)
     if n == 0:
         return [], 0
-    if n == 1:
-        return [0], 1
+    if n <= 2:
+        return [0] * n, 1
 
     from sklearn.cluster import AgglomerativeClustering
     from sklearn.metrics import silhouette_score
     from scipy.spatial.distance import pdist
 
+    # Unit-normalize feature vectors for distance/gain invariance
     X = np.array([s["feature_vec"] for s in segment_feats])
-    dists = pdist(X, metric="euclidean")
+    norms = np.linalg.norm(X, axis=1, keepdims=True)
+    norms[norms < 1e-6] = 1.0
+    X_norm = X / norms
+
+    dists = pdist(X_norm, metric="euclidean")
     max_d = float(np.max(dists)) if len(dists) > 0 else 0.0
     mean_d = float(np.mean(dists)) if len(dists) > 0 else 0.0
 
     # Single speaker check: if audio is acoustically uniform, keep 1 speaker
-    if max_d < 2.0 or mean_d < 1.2:
+    if max_d < 0.85 or mean_d < 0.45:
         return [0] * n, 1
 
     best_k = 1
-    best_score = 0.25  # minimum silhouette threshold to establish distinct speakers
+    # Conservative threshold: require strong cluster separation (>= 0.40) to establish distinct speakers.
+    # Prevents room reverb / mic distance shifts from falsely splitting a single speaker.
+    best_score = 0.40
     best_labels = [0] * n
 
-    for k in range(2, min(7, n)):
+    for k in range(2, min(6, n)):
         model = AgglomerativeClustering(n_clusters=k, metric="euclidean", linkage="ward")
-        labels = model.fit_predict(X)
+        labels = model.fit_predict(X_norm)
         try:
-            score = float(silhouette_score(X, labels))
+            score = float(silhouette_score(X_norm, labels))
             if score > best_score:
+                # Secondary validation: verify that cluster centroids have distinct pitch
+                # If all clusters have nearly identical pitch (within 28 Hz), it's the same speaker with variable distance
+                cluster_pitches = []
+                for c_id in range(k):
+                    c_f0s = [segment_feats[i]["median_f0"] for i, lbl in enumerate(labels) if lbl == c_id]
+                    if c_f0s:
+                        cluster_pitches.append(float(np.median(c_f0s)))
+                if len(cluster_pitches) >= 2:
+                    pitch_spread = max(cluster_pitches) - min(cluster_pitches)
+                    if pitch_spread < 28.0 and not (min(cluster_pitches) < 155.0 and max(cluster_pitches) > 175.0):
+                        continue
+
                 best_score = score
                 best_k = k
                 best_labels = list(labels)
