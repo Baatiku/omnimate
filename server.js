@@ -511,6 +511,43 @@ const server = http.createServer(async (req, res) => {
       return json(res, 202, { id, status: 'voicing' });
     }
 
+    const dubResumeMatch = pathname.match(/^\/api\/dubs\/([a-zA-Z0-9_-]+)\/resume$/);
+    if (req.method === 'POST' && dubResumeMatch) {
+      if (!config.geminiApiKey) return json(res, 503, { error: 'Gemini is not configured. Add GEMINI_API_KEY to .env.' });
+      const id = dubResumeMatch[1];
+      const job = await loadJob(id);
+      if (!job) return json(res, 404, { error: 'Dub not found.' });
+
+      job.error = null;
+      activeRuns.add(id);
+
+      if (job.segmentsData && Array.isArray(job.segmentsData) && job.segmentsData.length > 0) {
+        job.status = 'voicing';
+        job.step = 4;
+        await saveJob(job);
+        setImmediate(() => {
+          renderDub(job).catch((error) => {
+            console.error('Dub resume render failed:', error?.message || error);
+          }).finally(() => {
+            activeRuns.delete(id);
+          });
+        });
+        return json(res, 202, { id, status: 'voicing', step: 4 });
+      } else {
+        job.status = 'downloading';
+        job.step = job.rawSegments?.length ? 2 : 1;
+        await saveJob(job);
+        setImmediate(() => {
+          runDubPipeline(job).catch((error) => {
+            console.error('Dub resume pipeline failed:', error?.message || error);
+          }).finally(() => {
+            activeRuns.delete(id);
+          });
+        });
+        return json(res, 202, { id, status: 'resuming', step: job.step });
+      }
+    }
+
     const srtMatch = pathname.match(/^\/api\/dubs\/([a-zA-Z0-9_-]+)\/subtitles\.srt$/);
     if (req.method === 'GET' && srtMatch) {
       const file = path.join(projectDir(srtMatch[1]), 'subtitles.srt');

@@ -536,4 +536,114 @@ ul.jobs li a:hover {
   .side { position: static; }
   .settings-grid { grid-template-columns: 1fr; }
   .health { display: none; }
+  .stepper-bar { flex-direction: column; gap: 8px; align-items: flex-start; }
+  .step-divider { display: none; }
 }
+
+/* ==========================================================================
+   Interactive Stepper & Multi-Step Pipeline Navigation
+   ========================================================================== */
+.stepper-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #090d15;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.step-item:hover { opacity: 0.85; }
+.step-item.active {
+  opacity: 1;
+}
+.step-item.completed {
+  opacity: 0.95;
+}
+.step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #111724;
+  border: 2px solid #2d3748;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+}
+.step-item.active .step-circle {
+  border-color: var(--accent);
+  color: #fff;
+  background: rgba(56, 189, 248, 0.15);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+}
+.step-item.completed .step-circle {
+  border-color: #10b981;
+  background: #064e3b;
+  color: #34d399;
+}
+.step-label {
+  display: flex;
+  flex-direction: column;
+}
+.step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.step-item.active .step-title {
+  color: #fff;
+}
+.step-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.step-divider {
+  flex: 1;
+  height: 2px;
+  background: #1a2333;
+  margin: 0 12px;
+  position: relative;
+}
+.step-divider.filled {
+  background: linear-gradient(90deg, #10b981, var(--accent));
+}
+
+.pipeline-actions-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.resume-btn {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  color: #fff !important;
+  border: 1px solid #f59e0b !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.35) !important;
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+.resume-btn:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  box-shadow: 0 0 22px rgba(245, 158, 11, 0.55) !important;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.3); }
+  50% { box-shadow: 0 0 22px rgba(245, 158, 11, 0.6); }
+}
+

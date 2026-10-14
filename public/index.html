@@ -76,9 +76,44 @@
 
     <!-- Dubbing Studio -->
     <div id="tab-dub">
+      <!-- Interactive Step Progression Bar -->
+      <div class="stepper-bar" id="dubStepper">
+        <div class="step-item active" data-step="1" id="stepIndicator1">
+          <div class="step-circle">1</div>
+          <div class="step-label">
+            <span class="step-title">1. Source &amp; Ingest</span>
+            <span class="step-desc" id="stepDesc1">Download / Upload</span>
+          </div>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step-item" data-step="2" id="stepIndicator2">
+          <div class="step-circle">2</div>
+          <div class="step-label">
+            <span class="step-title">2. Speech &amp; Translation</span>
+            <span class="step-desc" id="stepDesc2">Diarize &amp; Hausa</span>
+          </div>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step-item" data-step="3" id="stepIndicator3">
+          <div class="step-circle">3</div>
+          <div class="step-label">
+            <span class="step-title">3. Cast &amp; Review Studio</span>
+            <span class="step-desc" id="stepDesc3">Voice &amp; Acting</span>
+          </div>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step-item" data-step="4" id="stepIndicator4">
+          <div class="step-circle">4</div>
+          <div class="step-label">
+            <span class="step-title">4. Render &amp; Output</span>
+            <span class="step-desc" id="stepDesc4">Master Video</span>
+          </div>
+        </div>
+      </div>
+
       <div class="studio-grid">
         <div class="flow">
-          <section class="card">
+          <section class="card" id="dubSourceCard">
             <div class="card-header-compact">
               <h2>Video Source</h2>
               <div class="source-nav" role="tablist">
@@ -159,7 +194,10 @@
               </label>
             </div>
 
-            <button id="dubGenerate" class="primary" type="button">Start Dubbing</button>
+            <div class="pipeline-actions-row">
+              <button id="dubGenerate" class="primary" type="button">Start Pipeline (Step 1 &amp; 2)</button>
+              <button id="dubResumeBtn" class="primary resume-btn" type="button" hidden>🔄 Resume Pipeline from Preserved Step</button>
+            </div>
             <p id="dubStatus" class="status"></p>
             <div id="dubTimer" class="dub-timer-container" hidden>
               <span class="timer-icon">⏱️</span>
@@ -172,11 +210,11 @@
           <section class="card" id="dubStudioCard" hidden>
             <div class="studio-header">
               <div>
-                <h2>Review &amp; Edit Lines</h2>
+                <h2>Step 3: Review &amp; Edit Lines</h2>
               </div>
               <div class="studio-actions-top">
                 <button id="dubSaveSegmentsTop" class="ghost" type="button">Save Edits</button>
-                <button id="dubApproveRenderTop" class="primary inline-btn" type="button">Approve &amp; Render Video</button>
+                <button id="dubApproveRenderTop" class="primary inline-btn" type="button">Next Step: Approve &amp; Render Video →</button>
               </div>
             </div>
 
@@ -219,14 +257,14 @@
 
             <div class="studio-footer">
               <button id="dubSaveSegments" class="ghost" type="button">Save Edits</button>
-              <button id="dubApproveRender" class="primary" type="button">Approve &amp; Render Video</button>
+              <button id="dubApproveRender" class="primary" type="button">Next Step: Approve &amp; Render Video →</button>
             </div>
           </section>
         </div>
 
         <aside class="side">
           <section class="card" id="dubResultCard" hidden>
-            <h2>Dubbed Video</h2>
+            <h2>Step 4: Dubbed Video &amp; Masters</h2>
             <video id="dubVideo" controls playsinline></video>
             <p class="downloads">
               <a id="dubDownload" href="#" download>Video (MP4)</a>
@@ -236,6 +274,7 @@
               <a id="dubSrt" href="#" download>Subtitles (.SRT)</a>
               <a id="dubVtt" href="#" download>Subtitles (.VTT)</a>
             </p>
+            <button id="dubBackToReviewBtn" class="ghost" type="button" style="width: 100%; margin-top: 0.85rem;">← Back to Review &amp; Edit Lines</button>
           </section>
           <section class="card">
             <h2>Recent Dubs</h2>

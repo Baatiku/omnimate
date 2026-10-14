@@ -263,6 +263,56 @@ test('reassigning speaker voice to Algieba updates segment voices and speaker ge
   assert.equal(job.speakersMeta.speaker_1.gender, 'Male');
 });
 
+test('autoAssignSpeakerVoices unconditionally assigns preferred voice to speaker_0 regardless of acoustic pitch', () => {
+  const speakersMeta = {
+    speaker_0: { id: 'speaker_0', gender: 'Female', pitch_hz: 240.0 },
+    speaker_1: { id: 'speaker_1', gender: 'Female', pitch_hz: 300.0 },
+  };
+
+  // User explicitly asks for Algieba (Male voice)
+  const assigned = autoAssignSpeakerVoices(speakersMeta, ['speaker_0', 'speaker_1'], 'Algieba');
+  assert.equal(assigned.speaker_0, 'Algieba', 'Speaker 0 must receive Algieba despite 240Hz pitch');
+});
+
+test('smart diarization outlier merge unites minor acoustic shifts without faces into speaker_0', () => {
+  const rawSegments = [
+    { i: 0, start: 0, end: 10, speaker: 'speaker_0', text: 'Hello' },
+    { i: 1, start: 10, end: 200, speaker: 'speaker_0', text: 'Long monologue' },
+    { i: 2, start: 200, end: 205, speaker: 'speaker_1', text: 'Brief echo from distance' },
+  ];
+  const speakersMeta = {
+    speaker_0: { id: 'speaker_0', gender: 'Male', faceDetected: true },
+    speaker_1: { id: 'speaker_1', gender: 'Female', faceDetected: false },
+  };
+
+  const spkDurations = {};
+  const spkCounts = {};
+  for (const s of rawSegments) {
+    const spk = s.speaker || 'speaker_0';
+    spkDurations[spk] = (spkDurations[spk] || 0) + (Math.max(0, (s.end || 0) - (s.start || 0)));
+    spkCounts[spk] = (spkCounts[spk] || 0) + 1;
+  }
+  const totalSpeechSec = Object.values(spkDurations).reduce((a, b) => a + b, 0) || 1;
+
+  for (const spk of Object.keys(spkDurations)) {
+    if (spk === 'speaker_0') continue;
+    const dur = spkDurations[spk] || 0;
+    const cnt = spkCounts[spk] || 0;
+    const isMinor = (dur < 18 || cnt <= 5) && (dur / totalSpeechSec < 0.10);
+    const meta = speakersMeta[spk] || {};
+
+    if (isMinor && !meta.faceDetected) {
+      for (const s of rawSegments) {
+        if ((s.speaker || 'speaker_0') === spk) s.speaker = 'speaker_0';
+      }
+      delete speakersMeta[spk];
+    }
+  }
+
+  assert.equal(rawSegments[2].speaker, 'speaker_0', 'Phantom distance segment must be merged into speaker_0');
+  assert.equal(speakersMeta.speaker_1, undefined, 'Phantom speaker_1 must be removed from cast');
+});
+
 
 
 

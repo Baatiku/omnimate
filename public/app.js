@@ -95,6 +95,66 @@ if (dubDropzone) {
   });
 }
 
+// Stepper & Multi-Step Pipeline Controls
+const dubStepper = document.getElementById('dubStepper');
+const stepIndicator1 = document.getElementById('stepIndicator1');
+const stepIndicator2 = document.getElementById('stepIndicator2');
+const stepIndicator3 = document.getElementById('stepIndicator3');
+const stepIndicator4 = document.getElementById('stepIndicator4');
+const stepDesc1 = document.getElementById('stepDesc1');
+const stepDesc2 = document.getElementById('stepDesc2');
+const stepDesc3 = document.getElementById('stepDesc3');
+const stepDesc4 = document.getElementById('stepDesc4');
+const dubResumeBtn = document.getElementById('dubResumeBtn');
+const dubBackToReviewBtn = document.getElementById('dubBackToReviewBtn');
+let activeJobId = null;
+
+function setStepperStep(step, { statusText = '' } = {}) {
+  const steps = [
+    { el: stepIndicator1, descEl: stepDesc1, defaultDesc: 'Download / Upload' },
+    { el: stepIndicator2, descEl: stepDesc2, defaultDesc: 'Diarize & Hausa' },
+    { el: stepIndicator3, descEl: stepDesc3, defaultDesc: 'Voice & Acting' },
+    { el: stepIndicator4, descEl: stepDesc4, defaultDesc: 'Master Video' },
+  ];
+
+  steps.forEach((s, idx) => {
+    const num = idx + 1;
+    if (!s.el) return;
+    s.el.classList.remove('active', 'completed');
+    const circle = s.el.querySelector('.step-circle');
+    if (num < step) {
+      s.el.classList.add('completed');
+      if (circle) circle.innerHTML = '✓';
+    } else if (num === step) {
+      s.el.classList.add('active');
+      if (circle) circle.textContent = String(num);
+      if (s.descEl && statusText) s.descEl.textContent = statusText;
+    } else {
+      if (circle) circle.textContent = String(num);
+      if (s.descEl) s.descEl.textContent = s.defaultDesc;
+    }
+  });
+}
+
+stepIndicator1?.addEventListener('click', () => {
+  const sourceCard = document.getElementById('dubSourceCard');
+  if (sourceCard) sourceCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+stepIndicator2?.addEventListener('click', () => {
+  const sourceCard = document.getElementById('dubSourceCard');
+  if (sourceCard) sourceCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+stepIndicator3?.addEventListener('click', () => {
+  if (dubStudioCard && !dubStudioCard.hidden) {
+    dubStudioCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+stepIndicator4?.addEventListener('click', () => {
+  if (dubResult && !dubResult.hidden) {
+    dubResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+
 // Review Studio Search & Filtering Controls
 const dubSearchInput = document.getElementById('dubSearchInput');
 const dubSpeakerFilter = document.getElementById('dubSpeakerFilter');
@@ -1043,10 +1103,13 @@ dubApproveRenderTopBtn?.addEventListener('click', async () => {
 });
 
 async function pollDub(id) {
+  activeJobId = id;
   const startedAt = Date.now();
   startDubTimer(startedAt);
+  if (dubResumeBtn) dubResumeBtn.hidden = true;
+
   for (let attempt = 0; attempt < 300; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 8000));
+    await new Promise((resolve) => setTimeout(resolve, 6000));
     const response = await fetch(`/api/dubs/${encodeURIComponent(id)}`);
     if (!response.ok) continue;
     const job = await response.json();
@@ -1056,16 +1119,34 @@ async function pollDub(id) {
       dubTimerPhase.textContent = `Stage: ${job.status}${detail}`;
     }
 
+    if (job.status === 'downloading' || job.status === 'downloading_local') {
+      setStepperStep(1, { statusText: 'Ingesting video…' });
+    } else if (job.status === 'transcribing' || job.status === 'scanning_faces' || job.status === 'analyzing_context') {
+      setStepperStep(2, { statusText: 'Diarizing speech…' });
+    } else if (job.status === 'translating') {
+      setStepperStep(2, { statusText: 'Translating Hausa…' });
+    }
+
     if (job.status === 'review') {
       stopDubTimer('Ready for Review');
-      setDubStatus('Transcript ready for review. Inspect and tweak lines below before rendering.');
+      setStepperStep(3, { statusText: 'Ready for Review' });
+      setDubStatus('Transcript & native Hausa dialogue ready. Inspect character cast and lines below before rendering.');
+      if (dubResumeBtn) dubResumeBtn.hidden = true;
       renderReviewStudio(job);
+      dubStudioCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
       refreshRecentDubs();
       return;
     }
 
+    if (job.status === 'voicing') {
+      setStepperStep(4, { statusText: 'Voicing characters…' });
+    } else if (job.status === 'assembling' || job.status === 'fetching') {
+      setStepperStep(4, { statusText: 'Mixing & ducking audio…' });
+    }
+
     if (job.status === 'done') {
       stopDubTimer('Completed');
+      setStepperStep(5);
       dubResult.hidden = false;
       if (job.video?.url) {
         dubVideo.src = job.video.url;
@@ -1075,18 +1156,26 @@ async function pollDub(id) {
       if (dubSrtLink) dubSrtLink.href = `/api/dubs/${encodeURIComponent(id)}/subtitles.srt`;
       if (dubVttLink) dubVttLink.href = `/api/dubs/${encodeURIComponent(id)}/subtitles.vtt`;
       setDubStatus('Done! Broadcast-grade dubbed video and subtitles ready.');
+      if (dubResumeBtn) dubResumeBtn.hidden = true;
+      dubResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
       refreshRecentDubs();
       return;
     }
+
     if (job.status === 'failed') {
       stopDubTimer('Failed');
-      setDubStatus(`Failed: ${job.error || 'unknown error'}`);
+      setDubStatus(`⚠️ Step paused on error: ${job.error || 'unknown error'}. Your downloaded video and transcripts are preserved.`);
+      if (dubResumeBtn) {
+        dubResumeBtn.hidden = false;
+        dubResumeBtn.disabled = false;
+        dubResumeBtn.textContent = '🔄 Resume Pipeline from Preserved Step';
+      }
       refreshRecentDubs();
       return;
     }
   }
   stopDubTimer('Timeout');
-  setDubStatus('Still working — wait a little and refresh Recent dubs.');
+  setDubStatus('Still working in background — refresh in a moment to resume.');
 }
 
 async function refreshRecentDubs() {
@@ -1132,15 +1221,33 @@ async function refreshRecentDubs() {
 }
 
 async function loadDub(id) {
+  activeJobId = id;
   const response = await fetch(`/api/dubs/${encodeURIComponent(id)}`);
   if (!response.ok) {
     setDubStatus('Could not load that dub.');
     return;
   }
   const job = await response.json();
-  if (job.segmentsData && (job.status === 'review' || job.status === 'done')) {
+
+  if (job.segmentsData && (job.status === 'review' || job.status === 'done' || job.status === 'failed')) {
     renderReviewStudio(job);
+    setStepperStep(job.status === 'done' ? 5 : 3);
+  } else if (job.rawSegments && job.rawSegments.length > 0) {
+    setStepperStep(2, { statusText: 'Transcribed' });
+  } else {
+    setStepperStep(1);
   }
+
+  if (job.status === 'failed') {
+    if (dubResumeBtn) {
+      dubResumeBtn.hidden = false;
+      dubResumeBtn.disabled = false;
+      dubResumeBtn.textContent = '🔄 Resume Pipeline from Preserved Step';
+    }
+  } else {
+    if (dubResumeBtn) dubResumeBtn.hidden = true;
+  }
+
   if (job.video?.url) {
     dubResult.hidden = false;
     dubVideo.src = job.video.url;
@@ -1151,6 +1258,36 @@ async function loadDub(id) {
   if (dubVttLink) dubVttLink.href = `/api/dubs/${encodeURIComponent(id)}/subtitles.vtt`;
   setDubStatus(`Status: ${job.status}${job.error ? ` — ${job.error}` : ''}`);
 }
+
+dubResumeBtn?.addEventListener('click', async () => {
+  if (!activeJobId) return;
+  dubResumeBtn.disabled = true;
+  dubResumeBtn.textContent = '🔄 Resuming pipeline…';
+  setDubStatus('Resuming from preserved step without re-downloading…');
+
+  try {
+    const res = await fetch(`/api/dubs/${encodeURIComponent(activeJobId)}/resume`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not resume.');
+    dubResumeBtn.hidden = true;
+    await pollDub(activeJobId);
+  } catch (err) {
+    setDubStatus(`Resume failed: ${err.message}`);
+    dubResumeBtn.disabled = false;
+    dubResumeBtn.textContent = '🔄 Try Resuming Again';
+  }
+});
+
+dubBackToReviewBtn?.addEventListener('click', () => {
+  if (currentReviewJob) {
+    renderReviewStudio(currentReviewJob);
+    setStepperStep(3, { statusText: 'Review & Edit' });
+    dubStudioCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
 
 dubGenerateButton.addEventListener('click', async () => {
   const youtubeUrl = activeSourceType === 'youtube' ? dubUrlInput.value.trim() : '';
