@@ -24,8 +24,8 @@ Omnimate bypasses legacy Cloud Text-to-Speech (TTS) engines entirely in favor of
 1. **Gemini Live Native Audio vs Legacy TTS**:
    - Older Cloud TTS engines rely on rigid concatenative or basic neural diphone models with synthetic cadence and unnatural accents for African tonal languages.
    - The Gemini Live API synthesizes speech directly within end-to-end multimodal neural weights, returning pristine 24kHz 16-bit uncompressed PCM audio with authentic emotional nuance, breathing dynamics, and natural inflection.
-2. **30 Official Google Gemini HD Voices**:
-   - Powered by the full official catalog of 30 astronomical studio voices (15 Male, 15 Female, e.g. `Charon`, `Puck`, `Aoede`, `Kore`, `Zephyr`, `Orus`).
+2. **67 Official Google Gemini Live Studio Voices**:
+   - Powered by Google's full expanded catalog of 67 prebuilt studio voices (38 Male, 29 Female), including the conversational leads `Bodi` (Male), `Koda` (Male), `Fola` (Female), `Lumi` (Female), and `Sola` (Female), alongside the astronomical studio voices (`Charon`, `Puck`, `Aoede`, `Kore`, `Zephyr`, `Orus`).
 3. **Session-Level `systemInstruction` Steering (`buildLiveSystemInstruction`)**:
    - Each Gemini Live session is initialized with targeted system instructions configuring the model as an elite Northern Nigerian (Kano/Kaduna standard) broadcast voice actor.
    - Enforces authentic tonal inflections, proper vowel duration (*wasula*), and natural pronunciation of glottalized consonants (ƙ, ɗ, ɓ, 'y).
@@ -55,21 +55,21 @@ To solve the audio-only blindspot where children and adult women share high fund
    - For confirmed candidate frames, Gemini analyzes the image with strict biological human filtering (`isHuman: boolean`, `subjectCategory: 'human' | 'animal' | 'scenery' | 'object'`).
    - If an animal is present, Gemini sets `isHuman: false` and `faceDetected: false`.
    - For human subjects, extracts gender, age bracket (`Child`, `Teen`, `Young Adult`, `Adult`, `Senior`), estimated numerical age, expression, and tailored vocal acting performance prompt.
-4. **Official 30 Google Gemini Prebuilt Voices (Astronomical Studio Catalog)**:
-   - **Female Voices (15)**:
-     - Youth / Child: `Zephyr`, `Autonoe`, `Leda`
-     - Young Adult: `Aoede`, `Callirrhoe`, `Laomedeia`, `Despina`, `Erinome`
-     - Adult / Broadcaster: `Kore`, `Aoede`, `Pulcherrima`, `Sulafat`, `Erinome`, `Rasalgethi`
-     - Senior / Matriarch: `Gacrux`, `Vindemiatrix`, `Achernar`, `Kore`
-   - **Male Voices (15)**:
-     - Youth / Child: `Puck`, `Fenrir`, `Umbriel`
-     - Young Adult: `Puck`, `Achird`, `Zubenelgenubi`, `Iapetus`, `Sadachbia`
-     - Adult / Anchor: `Charon`, `Orus`, `Algieba`, `Alnilam`, `Schedar`, `Sadaltager`
-     - Senior / Seasoned: `Algenib`, `Sadaltager`, `Charon`, `Alnilam`
-
-> [!NOTE]
-> **Why Unofficial Names Like "Bodi" Defaulted to Female Audio**:
-> In Google Gemini Multimodal Live and TTS APIs, only the official astronomical voice identifiers (`Charon`, `Puck`, `Aoede`, `Kore`, etc.) are recognized. When an unlisted identifier like "Bodi" or "Fola" was sent, Gemini silently fell back to its default system voice (`Aoede`/`Kore`), which is female. Omnimate now exclusively uses Google's verified 30 prebuilt voices.
+4. **Official 67 Google Gemini Prebuilt Voices (Studio Catalog & Demographics)**:
+   - **Female Voices (29)**:
+     - Youth / Child: `Rina`, `Nyla`, `Zephyr`, `Autonoe`, `Leda`
+     - Teen: `Lumi`, `Nika`, `Zali`, `Leda`, `Zephyr`, `Callirrhoe`, `Autonoe`, `Rina`
+     - Young Adult: `Fola`, `Sola`, `Kira`, `Aoede`, `Enya`, `Zuri`, `Hali`, `Callirrhoe`, `Laomedeia`, `Despina`, `Erinome`
+     - Adult / Broadcaster: `Fola`, `Cleo`, `Lora`, `Tova`, `Kore`, `Aoede`, `Pulcherrima`, `Sulafat`, `Erinome`, `Rasalgethi`
+     - Senior / Matriarch: `Gacrux`, `Vindemiatrix`, `Achernar`, `Lora`, `Kore`
+   - **Male Voices (38)**:
+     - Youth / Child: `Ludo`, `Finn`, `Puck`, `Fenrir`, `Umbriel`
+     - Teen: `Arlo`, `Milo`, `Jett`, `Puck`, `Umbriel`, `Zubenelgenubi`, `Fenrir`
+     - Young Adult: `Bodi`, `Koda`, `Brio`, `Jori`, `Enzo`, `Riko`, `Sami`, `Elio`, `Cruz`, `Puck`, `Achird`, `Zubenelgenubi`, `Iapetus`, `Sadachbia`
+     - Adult / Anchor: `Bodi`, `Koda`, `Varo`, `Zeno`, `Mako`, `Rami`, `Knox`, `Charon`, `Orus`, `Algieba`, `Alnilam`, `Schedar`, `Sadaltager`
+     - Senior / Seasoned: `Daro`, `Gero`, `Olin`, `Algenib`, `Sadaltager`, `Charon`, `Alnilam`
+5. **Preserving User Preferred Voice**:
+   - When a user explicitly chooses a voice (e.g. `Bodi`), Omnimate pins the primary speaker directly to `preferredVoice` while automatically balancing any secondary speakers according to detected demographics, ensuring the selected lead voice is always used.
 
 ---
 

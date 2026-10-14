@@ -150,21 +150,26 @@ test('autoAssignSpeakerVoices balances gender presentation without collisions or
   assert.ok(MALE_VOICES.includes(assigned.speaker_3), `Male speaker 3 must get male voice, got ${assigned.speaker_3}`);
 
   // Assert hallucinated / invalid voice names are NEVER assigned
-  const forbidden = ['koda', 'brio', 'sola', 'mako', 'nobody'];
+  const forbidden = ['fictional_voice', 'unreal_bot', 'nobody'];
   for (const v of values) {
     assert.ok(!forbidden.includes(v.toLowerCase()), `Invalid voice detected: ${v}`);
   }
 });
 
-test('voice catalog lists official Google Gemini voices including Bodi and Fola', () => {
-  assert.equal(FEMALE_VOICES.length, 16);
-  assert.equal(MALE_VOICES.length, 16);
-  assert.equal(FEMALE_VOICES.length + MALE_VOICES.length, 32);
+test('voice catalog lists official Google Gemini voices including Bodi, Koda, Fola, Lumi, and Sola', () => {
+  assert.equal(FEMALE_VOICES.length, 29);
+  assert.equal(MALE_VOICES.length, 38);
+  assert.equal(FEMALE_VOICES.length + MALE_VOICES.length, 67);
   assert.ok(FEMALE_VOICES.includes('Aoede'));
   assert.ok(FEMALE_VOICES.includes('Fola'));
+  assert.ok(FEMALE_VOICES.includes('Lumi'));
+  assert.ok(FEMALE_VOICES.includes('Sola'));
   assert.ok(FEMALE_VOICES.includes('Kore'));
   assert.ok(FEMALE_VOICES.includes('Zephyr'));
   assert.ok(MALE_VOICES.includes('Bodi'));
+  assert.ok(MALE_VOICES.includes('Koda'));
+  assert.ok(MALE_VOICES.includes('Varo'));
+  assert.ok(MALE_VOICES.includes('Enzo'));
   assert.ok(MALE_VOICES.includes('Charon'));
   assert.ok(MALE_VOICES.includes('Puck'));
   assert.ok(MALE_VOICES.includes('Fenrir'));

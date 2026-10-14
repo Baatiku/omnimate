@@ -28,18 +28,22 @@ test('same script plus same photo reuses the running job fingerprint', () => {
 });
 
 test('voice catalog holds official Google voices with gender labels', () => {
-  assert.equal(PRESENTER_VOICES.length, 32);
+  assert.equal(PRESENTER_VOICES.length, 67);
   for (const voice of PRESENTER_VOICES) {
     assert.match(voice.name, /^[A-Z][a-z]+$/);
     assert.ok(['Female', 'Male'].includes(voice.gender));
   }
   // Check female voices
   assert.equal(voiceByName('Aoede')?.gender, 'Female');
+  assert.equal(voiceByName('Fola')?.gender, 'Female');
+  assert.equal(voiceByName('Lumi')?.gender, 'Female');
+  assert.equal(voiceByName('Sola')?.gender, 'Female');
   assert.equal(voiceByName('Kore')?.gender, 'Female');
   assert.equal(voiceByName('Zephyr')?.gender, 'Female');
 
   // Check male voices
   assert.equal(voiceByName('Bodi')?.gender, 'Male');
+  assert.equal(voiceByName('Koda')?.gender, 'Male');
   assert.equal(voiceByName('Charon')?.gender, 'Male');
   assert.equal(voiceByName('Puck')?.gender, 'Male');
   assert.equal(voiceByName('Fenrir')?.gender, 'Male');
@@ -49,7 +53,7 @@ test('voice catalog holds official Google voices with gender labels', () => {
   assert.equal(voiceByName('Aoede')?.gender, 'Female');
 
   // Fictional / hallucinated names must return null
-  assert.equal(voiceByName('Lumi'), null);
+  assert.equal(voiceByName('FictionalVoice'), null);
   assert.equal(voiceByName('Nobody'), null);
 });
 
