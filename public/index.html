@@ -17,110 +17,145 @@
   </header>
 
   <main class="wrap">
+    <!-- Presenter Studio -->
     <div id="tab-presenter" hidden>
       <div class="studio-grid">
         <div class="flow">
           <section class="card">
-            <h2><span class="step">1</span>Presenter photo</h2>
-            <input id="photo" type="file" accept="image/jpeg,image/png" />
-            <img id="preview" alt="Presenter preview" hidden />
-            <p class="hint">Front-facing portrait. JPG or PNG, under 10 MB.</p>
-          </section>
-
-          <section class="card">
-            <h2><span class="step">2</span>Topic <span class="opt">optional</span></h2>
-            <textarea id="prompt" rows="2" maxlength="2000" placeholder="e.g. 60-second morning football roundup"></textarea>
-            <div class="inline">
-              <select id="length" aria-label="Length">
-                <option value="30">30s</option>
-                <option value="60" selected>60s</option>
-                <option value="90">90s</option>
-              </select>
-              <button id="writeScript" class="ghost" type="button">Write script with AI</button>
+            <h2>Presenter Photo</h2>
+            <div class="file-picker-wrap">
+              <input id="photo" type="file" accept="image/jpeg,image/png" />
+              <img id="preview" alt="Presenter preview" hidden />
             </div>
-            <p class="hint">Or type your script directly below.</p>
           </section>
 
           <section class="card">
-            <h2><span class="step">3</span>Script &amp; voice</h2>
-            <textarea id="script" rows="5" maxlength="5000" placeholder="What your presenter should say…"></textarea>
+            <div class="card-header-compact">
+              <h2>Topic <span class="opt">optional</span></h2>
+              <div class="inline">
+                <select id="length" aria-label="Duration">
+                  <option value="30">30s</option>
+                  <option value="60" selected>60s</option>
+                  <option value="90">90s</option>
+                </select>
+                <button id="writeScript" class="ghost" type="button">AI Draft</button>
+              </div>
+            </div>
+            <textarea id="prompt" rows="2" maxlength="2000" placeholder="e.g. 60-second morning tech update"></textarea>
+          </section>
+
+          <section class="card">
+            <h2>Script &amp; Voice</h2>
+            <textarea id="script" rows="5" maxlength="5000" placeholder="Dialogue or speech script…"></textarea>
             <div class="row3">
               <select id="voice" aria-label="Voice"><option>Loading…</option></select>
               <select id="quality" aria-label="Quality">
                 <option value="high">High quality</option>
-                <option value="fast">Fast draft</option>
+                <option value="fast">Draft</option>
               </select>
               <input id="title" type="text" maxlength="120" placeholder="Title (optional)" />
             </div>
-            <button id="generate" class="primary" type="button">Generate video</button>
+            <button id="generate" class="primary" type="button">Generate Video</button>
             <p id="status" class="status"></p>
           </section>
         </div>
 
         <aside class="side">
           <section class="card" id="resultCard" hidden>
-            <h2>Result</h2>
+            <h2>Output</h2>
             <video id="resultVideo" controls playsinline></video>
             <audio id="resultAudio" controls></audio>
           </section>
           <section class="card">
-            <h2>Recent</h2>
+            <h2>Recent Projects</h2>
             <ul id="recent" class="jobs"></ul>
           </section>
         </aside>
       </div>
     </div>
 
+    <!-- Dubbing Studio -->
     <div id="tab-dub">
       <div class="studio-grid">
         <div class="flow">
           <section class="card">
-            <h2><span class="step">1</span>Your video</h2>
-            <input id="dubUrl" type="url" placeholder="YouTube link — https://www.youtube.com/watch?v=…" />
-            <div class="cookie-status-bar" id="cookieStatusBar">
-              <span class="cookie-status-indicator" id="cookieStatusText">🍪 Checking YouTube Cookies…</span>
-              <div class="cookie-actions">
-                <button type="button" class="cookie-btn" id="cookieAutoBtn" title="Auto-detect &amp; extract from local browser">Auto-Connect Browser</button>
-                <label class="cookie-btn cookie-upload-label" title="Upload a cookies.txt file exported from browser">
-                  Upload cookies.txt
-                  <input type="file" id="cookieFileInput" accept=".txt" hidden />
-                </label>
+            <div class="card-header-compact">
+              <h2>Video Source</h2>
+              <div class="source-nav" role="tablist">
+                <button type="button" class="source-tab active" data-source="youtube">YouTube</button>
+                <button type="button" class="source-tab" data-source="direct">Direct URL</button>
+                <button type="button" class="source-tab" data-source="upload">Upload File</button>
               </div>
             </div>
-            <input id="dubDirect" type="url" placeholder="Or direct file link — https://…/video.mp4" />
-            <div class="file-upload-row">
-              <label for="dubFile" class="file-label">Or upload video file: </label>
-              <input id="dubFile" type="file" accept="video/mp4,video/quicktime,video/webm" />
+
+            <!-- YouTube Input Panel -->
+            <div id="sourcePanelYoutube" class="source-panel">
+              <input id="dubUrl" type="url" placeholder="Paste YouTube link (https://www.youtube.com/watch?v=…)" />
+              <div class="cookie-status-bar" id="cookieStatusBar">
+                <span class="cookie-status-indicator" id="cookieStatusText">🍪 Cookies: checking…</span>
+                <div class="cookie-actions">
+                  <button type="button" class="cookie-btn" id="cookieAutoBtn" title="Auto-detect from browser">Auto-Connect</button>
+                  <label class="cookie-btn cookie-upload-label" title="Upload cookies.txt file">
+                    Upload .txt
+                    <input type="file" id="cookieFileInput" accept=".txt" hidden />
+                  </label>
+                </div>
+              </div>
             </div>
 
-            <div class="row3">
-              <select id="dubLang" aria-label="Language">
-                <option value="ha" selected>Hausa (Default)</option>
-                <option value="yo">Yoruba</option>
-                <option value="ig">Igbo</option>
-                <option value="sw">Swahili</option>
-                <option value="fr">French</option>
-                <option value="ar">Arabic</option>
-                <option value="es">Spanish</option>
-              </select>
-              <select id="dubVoice" aria-label="Voice Casting Mode">
-                <option value="auto" selected>✨ Auto-Cast Voices (Face, Age &amp; Gender AI)</option>
-              </select>
-              <select id="dubMode" aria-label="Workflow Mode">
-                <option value="review" selected>Review &amp; Edit first (Recommended)</option>
-                <option value="auto">1-Click Auto Dub</option>
-              </select>
+            <!-- Direct URL Input Panel -->
+            <div id="sourcePanelDirect" class="source-panel" hidden>
+              <input id="dubDirect" type="url" placeholder="Direct MP4 or WebM link (https://…/video.mp4)" />
             </div>
 
-            <div class="audio-controls-row">
-              <label class="slider-label">
-                <span>Background Music &amp; Ambient (M&amp;E):</span>
-                <input id="dubBgVolume" type="range" min="0" max="1" step="0.05" value="0.25" />
-                <span id="dubBgVolumeVal">25%</span>
+            <!-- File Upload Input Panel -->
+            <div id="sourcePanelUpload" class="source-panel" hidden>
+              <label for="dubFile" class="dropzone" id="dubDropzone">
+                <span class="dropzone-icon">📁</span>
+                <span class="dropzone-text" id="dubDropzoneText">Click to select MP4, MOV, or WebM video</span>
+                <input id="dubFile" type="file" accept="video/mp4,video/quicktime,video/webm" hidden />
               </label>
-              <label class="check-label">
+            </div>
+
+            <!-- Pipeline Parameters -->
+            <div class="settings-grid">
+              <div class="field">
+                <label for="dubLang" class="field-label">Target Language</label>
+                <select id="dubLang" aria-label="Language">
+                  <option value="ha" selected>Hausa</option>
+                  <option value="yo">Yoruba</option>
+                  <option value="ig">Igbo</option>
+                  <option value="sw">Swahili</option>
+                  <option value="fr">French</option>
+                  <option value="ar">Arabic</option>
+                  <option value="es">Spanish</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="dubVoice" class="field-label">Voice Casting</label>
+                <select id="dubVoice" aria-label="Voice Casting Mode">
+                  <option value="auto" selected>✨ Auto-Cast (Demographics)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="dubMode" class="field-label">Workflow</label>
+                <select id="dubMode" aria-label="Workflow Mode">
+                  <option value="review" selected>Review &amp; Edit first</option>
+                  <option value="auto">1-Click Fast Render</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Audio Mix Toolbar -->
+            <div class="audio-mixer-compact">
+              <div class="mixer-slider-group">
+                <label for="dubBgVolume" class="mixer-label">Background Audio (M&amp;E): <span id="dubBgVolumeVal" class="val-badge">25%</span></label>
+                <input id="dubBgVolume" type="range" min="0" max="1" step="0.05" value="0.25" />
+              </div>
+              <label class="toggle-control">
                 <input id="dubDucking" type="checkbox" checked />
-                <span>Sidechain Ducking (lower music when speaking)</span>
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">Sidechain Ducking</span>
               </label>
             </div>
 
@@ -131,13 +166,14 @@
               <span id="dubTimerText" class="timer-text">00:00</span>
               <span id="dubTimerPhase" class="timer-phase">Stage: Initializing…</span>
             </div>
-            <p class="hint">Professional dubbing: stem separation preserves background music, speaker turn detection, line-exact timing, and -16 LUFS loudness leveling.</p>
           </section>
 
           <!-- Interactive Review Studio (Human-in-the-Loop) -->
           <section class="card" id="dubStudioCard" hidden>
             <div class="studio-header">
-              <h2><span class="step">2</span>Review &amp; Edit Lines</h2>
+              <div>
+                <h2>Review &amp; Edit Lines</h2>
+              </div>
               <div class="studio-actions-top">
                 <button id="dubSaveSegmentsTop" class="ghost" type="button">Save Edits</button>
                 <button id="dubApproveRenderTop" class="primary inline-btn" type="button">Approve &amp; Render Video</button>
@@ -156,13 +192,26 @@
             <!-- Multi-Speaker Voice Assignment Controls -->
             <div id="dubSpeakersSection" class="speakers-panel">
               <div class="speakers-panel-header">
-                <div>
-                  <h3>Speaker Voice Assignment</h3>
-                  <p class="speakers-panel-sub">Acoustically detected speakers with pitch &amp; gender presentation. Audition their original audio from the video clip and assign distinct voices.</p>
+                <h3>Cast &amp; Voices</h3>
+                <div class="speakers-header-actions">
+                  <button id="dubAddSpeakerBtn" class="ghost-sm inline-btn" type="button">+ Add Speaker</button>
                 </div>
-                <button id="dubAddSpeakerBtn" class="ghost-sm inline-btn" type="button">+ Add Speaker</button>
               </div>
               <div id="dubSpeakersGrid" class="speakers-grid"></div>
+            </div>
+
+            <!-- Search & Filter Toolbar for Dialogue Lines -->
+            <div class="segments-toolbar">
+              <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="dubSearchInput" placeholder="Filter dialogue lines by text…" />
+              </div>
+              <div class="filter-box">
+                <select id="dubSpeakerFilter" aria-label="Filter lines by speaker">
+                  <option value="all">All Speakers</option>
+                </select>
+                <span id="dubLineCounter" class="line-counter-badge">0 lines</span>
+              </div>
             </div>
 
             <!-- Segment Timeline List -->
@@ -177,7 +226,7 @@
 
         <aside class="side">
           <section class="card" id="dubResultCard" hidden>
-            <h2>Dubbed video</h2>
+            <h2>Dubbed Video</h2>
             <video id="dubVideo" controls playsinline></video>
             <p class="downloads">
               <a id="dubDownload" href="#" download>Video (MP4)</a>
@@ -189,7 +238,7 @@
             </p>
           </section>
           <section class="card">
-            <h2>Recent</h2>
+            <h2>Recent Dubs</h2>
             <ul id="recentDubs" class="jobs"></ul>
           </section>
         </aside>

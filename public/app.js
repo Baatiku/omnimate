@@ -39,6 +39,102 @@ const dubTimerText = document.getElementById('dubTimerText');
 const dubTimerPhase = document.getElementById('dubTimerPhase');
 let dubTimerInterval = null;
 
+// Video Source Navigation & Drag-and-Drop
+const sourceTabs = document.querySelectorAll('.source-tab');
+const sourcePanelYoutube = document.getElementById('sourcePanelYoutube');
+const sourcePanelDirect = document.getElementById('sourcePanelDirect');
+const sourcePanelUpload = document.getElementById('sourcePanelUpload');
+const dubDropzone = document.getElementById('dubDropzone');
+const dubDropzoneText = document.getElementById('dubDropzoneText');
+let activeSourceType = 'youtube';
+
+sourceTabs.forEach((tab) => {
+  tab.addEventListener('click', () => {
+    sourceTabs.forEach((t) => t.classList.remove('active'));
+    tab.classList.add('active');
+    activeSourceType = tab.getAttribute('data-source') || 'youtube';
+    if (sourcePanelYoutube) sourcePanelYoutube.hidden = activeSourceType !== 'youtube';
+    if (sourcePanelDirect) sourcePanelDirect.hidden = activeSourceType !== 'direct';
+    if (sourcePanelUpload) sourcePanelUpload.hidden = activeSourceType !== 'upload';
+  });
+});
+
+if (dubFileInput) {
+  dubFileInput.addEventListener('change', () => {
+    if (dubFileInput.files && dubFileInput.files[0]) {
+      const file = dubFileInput.files[0];
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      if (dubDropzoneText) dubDropzoneText.textContent = `🎬 ${file.name} (${mb} MB)`;
+    }
+  });
+}
+
+if (dubDropzone) {
+  ['dragenter', 'dragover'].forEach((evt) => {
+    dubDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dubDropzone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach((evt) => {
+    dubDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dubDropzone.classList.remove('dragover');
+    });
+  });
+  dubDropzone.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    if (dt && dt.files && dt.files[0]) {
+      dubFileInput.files = dt.files;
+      const file = dt.files[0];
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      if (dubDropzoneText) dubDropzoneText.textContent = `🎬 ${file.name} (${mb} MB)`;
+    }
+  });
+}
+
+// Review Studio Search & Filtering Controls
+const dubSearchInput = document.getElementById('dubSearchInput');
+const dubSpeakerFilter = document.getElementById('dubSpeakerFilter');
+const dubLineCounter = document.getElementById('dubLineCounter');
+
+function applySegmentFilters() {
+  const query = (dubSearchInput?.value || '').toLowerCase().trim();
+  const selectedSpeaker = dubSpeakerFilter?.value || 'all';
+  const cards = dubSegmentsList ? dubSegmentsList.querySelectorAll('.segment-card') : [];
+  let visibleCount = 0;
+
+  cards.forEach((card) => {
+    const cardSpeaker = card.getAttribute('data-card-speaker') || 'speaker_0';
+    const textarea = card.querySelector('.segment-textarea');
+    const srcText = card.querySelector('.segment-src-text');
+    const delivery = card.querySelector('.segment-delivery-input');
+
+    const cardText = (textarea?.value || '').toLowerCase();
+    const origText = (srcText?.textContent || '').toLowerCase();
+    const deliveryText = (delivery?.value || '').toLowerCase();
+
+    const matchesSpeaker = selectedSpeaker === 'all' || cardSpeaker === selectedSpeaker;
+    const matchesQuery = !query || cardText.includes(query) || origText.includes(query) || deliveryText.includes(query);
+
+    if (matchesSpeaker && matchesQuery) {
+      card.style.display = '';
+      visibleCount += 1;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  if (dubLineCounter) {
+    dubLineCounter.textContent = `${visibleCount} of ${cards.length} lines`;
+  }
+}
+
+dubSearchInput?.addEventListener('input', applySegmentFilters);
+dubSpeakerFilter?.addEventListener('change', applySegmentFilters);
+
 function startDubTimer(startedAt = Date.now()) {
   if (dubTimerInterval) clearInterval(dubTimerInterval);
   if (dubTimerContainer) dubTimerContainer.hidden = false;
@@ -114,6 +210,14 @@ async function refreshHealth() {
   }
 }
 
+function getStatusPillClass(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'done' || s === 'completed' || s === 'ready') return 'ready';
+  if (s === 'review') return 'review';
+  if (s === 'failed' || s === 'error') return 'failed';
+  return 'working';
+}
+
 async function refreshRecent() {
   try {
     const response = await fetch('/api/presenters');
@@ -121,19 +225,36 @@ async function refreshRecent() {
     recentList.innerHTML = '';
     for (const job of jobs.slice(0, 10)) {
       const item = document.createElement('li');
-      const link = document.createElement('a');
-      link.href = '#';
-      link.textContent = `${job.options?.title || 'Untitled'} — ${job.status}`;
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        loadJob(job.id);
+      item.className = 'job-card';
+      item.tabIndex = 0;
+
+      const title = job.options?.title || 'Untitled Presenter';
+      const status = job.status || 'pending';
+      const pillClass = getStatusPillClass(status);
+      const voice = job.options?.voice || '';
+
+      item.innerHTML = `
+        <div class="job-card-row">
+          <span class="job-title" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+          <span class="job-status-pill ${pillClass}">${escapeHtml(status)}</span>
+        </div>
+        <div class="job-meta">
+          ${voice ? `<span>🎙️ ${escapeHtml(voice)}</span>` : ''}
+        </div>
+      `;
+
+      item.addEventListener('click', () => loadJob(job.id));
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          loadJob(job.id);
+        }
       });
-      item.appendChild(link);
       recentList.appendChild(item);
     }
-    if (!jobs.length) recentList.innerHTML = '<li>No presenters yet.</li>';
+    if (!jobs.length) recentList.innerHTML = '<li class="jobs-empty">No presenters yet.</li>';
   } catch {
-    recentList.innerHTML = '<li>Could not load recent presenters.</li>';
+    recentList.innerHTML = '<li class="jobs-empty">Could not load recent presenters.</li>';
   }
 }
 
@@ -582,6 +703,7 @@ function renderReviewStudio(job) {
     const card = document.createElement('div');
     card.className = 'segment-card';
     card.id = `seg-card-${seg.i}`;
+    card.setAttribute('data-card-speaker', seg.speaker || 'speaker_0');
 
     const durationBudget = Number(seg.durationBudget ?? (Math.round((seg.end - seg.start) * 10) / 10));
 
@@ -664,6 +786,9 @@ function renderReviewStudio(job) {
     spkSelect.addEventListener('change', () => {
       segSpkAvatar.src = `/api/dubs/${encodeURIComponent(job.id)}/face/${encodeURIComponent(spkSelect.value)}.jpg`;
       segSpkAvatar.style.display = 'inline-block';
+      seg.speaker = spkSelect.value;
+      card.setAttribute('data-card-speaker', spkSelect.value);
+      applySegmentFilters();
     });
 
     spkWrap.appendChild(segSpkAvatar);
@@ -767,6 +892,21 @@ function renderReviewStudio(job) {
 
     dubSegmentsList.appendChild(card);
   }
+
+  // Populate Speaker Filter Dropdown in Review Toolbar
+  if (dubSpeakerFilter) {
+    const prevFilter = dubSpeakerFilter.value || 'all';
+    dubSpeakerFilter.innerHTML = '<option value="all">All Speakers</option>';
+    for (const spk of speakers) {
+      const opt = document.createElement('option');
+      opt.value = spk;
+      opt.textContent = spk.replace('_', ' ').toUpperCase();
+      if (spk === prevFilter) opt.selected = true;
+      dubSpeakerFilter.appendChild(opt);
+    }
+  }
+
+  applySegmentFilters();
 }
 
 dubAddSpeakerBtn?.addEventListener('click', () => {
@@ -956,19 +1096,38 @@ async function refreshRecentDubs() {
     recentDubsList.innerHTML = '';
     for (const job of jobs.slice(0, 10)) {
       const item = document.createElement('li');
-      const link = document.createElement('a');
-      link.href = '#';
-      link.textContent = `${job.options?.title || 'Untitled'} — ${job.status}`;
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        loadDub(job.id);
+      item.className = 'job-card';
+      item.tabIndex = 0;
+
+      const title = job.options?.title || 'Untitled Dub';
+      const status = job.status || 'pending';
+      const pillClass = getStatusPillClass(status);
+      const targetLang = (job.options?.targetLang || 'ha').toUpperCase();
+      const timeStr = job.createdAt ? new Date(job.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+      item.innerHTML = `
+        <div class="job-card-row">
+          <span class="job-title" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+          <span class="job-status-pill ${pillClass}">${escapeHtml(status)}</span>
+        </div>
+        <div class="job-meta">
+          <span>🌐 ${escapeHtml(targetLang)}</span>
+          ${timeStr ? `<span>⏱️ ${escapeHtml(timeStr)}</span>` : ''}
+        </div>
+      `;
+
+      item.addEventListener('click', () => loadDub(job.id));
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          loadDub(job.id);
+        }
       });
-      item.appendChild(link);
       recentDubsList.appendChild(item);
     }
-    if (!jobs.length) recentDubsList.innerHTML = '<li>No dubs yet.</li>';
+    if (!jobs.length) recentDubsList.innerHTML = '<li class="jobs-empty">No dubs yet.</li>';
   } catch {
-    recentDubsList.innerHTML = '<li>Could not load recent dubs.</li>';
+    recentDubsList.innerHTML = '<li class="jobs-empty">Could not load recent dubs.</li>';
   }
 }
 
@@ -994,12 +1153,18 @@ async function loadDub(id) {
 }
 
 dubGenerateButton.addEventListener('click', async () => {
-  const youtubeUrl = dubUrlInput.value.trim();
-  const directUrl = dubDirectInput.value.trim();
-  const file = dubFileInput?.files?.[0];
+  const youtubeUrl = activeSourceType === 'youtube' ? dubUrlInput.value.trim() : '';
+  const directUrl = activeSourceType === 'direct' ? dubDirectInput.value.trim() : '';
+  const file = activeSourceType === 'upload' ? dubFileInput?.files?.[0] : null;
 
   if (!youtubeUrl && !directUrl && !file) {
-    setDubStatus('Paste a YouTube link, direct video link, or select a video file.');
+    if (activeSourceType === 'youtube') {
+      setDubStatus('Please paste a YouTube link.');
+    } else if (activeSourceType === 'direct') {
+      setDubStatus('Please paste a direct video link (MP4/WebM).');
+    } else {
+      setDubStatus('Please select a video file to upload.');
+    }
     return;
   }
 
