@@ -150,22 +150,40 @@ test('autoAssignSpeakerVoices balances gender presentation without collisions or
   assert.ok(MALE_VOICES.includes(assigned.speaker_3), `Male speaker 3 must get male voice, got ${assigned.speaker_3}`);
 
   // Assert hallucinated / invalid voice names are NEVER assigned
-  const forbidden = ['bodi', 'fola', 'lumi', 'koda', 'brio', 'sola', 'mako'];
+  const forbidden = ['koda', 'brio', 'sola', 'mako', 'nobody'];
   for (const v of values) {
     assert.ok(!forbidden.includes(v.toLowerCase()), `Invalid voice detected: ${v}`);
   }
 });
 
-test('voice catalog lists 15 females and 15 males totaling 30 official Google Gemini voices', () => {
-  assert.equal(FEMALE_VOICES.length, 15);
-  assert.equal(MALE_VOICES.length, 15);
-  assert.equal(FEMALE_VOICES.length + MALE_VOICES.length, 30);
+test('voice catalog lists official Google Gemini voices including Bodi and Fola', () => {
+  assert.equal(FEMALE_VOICES.length, 16);
+  assert.equal(MALE_VOICES.length, 16);
+  assert.equal(FEMALE_VOICES.length + MALE_VOICES.length, 32);
   assert.ok(FEMALE_VOICES.includes('Aoede'));
+  assert.ok(FEMALE_VOICES.includes('Fola'));
   assert.ok(FEMALE_VOICES.includes('Kore'));
   assert.ok(FEMALE_VOICES.includes('Zephyr'));
+  assert.ok(MALE_VOICES.includes('Bodi'));
   assert.ok(MALE_VOICES.includes('Charon'));
   assert.ok(MALE_VOICES.includes('Puck'));
   assert.ok(MALE_VOICES.includes('Fenrir'));
+});
+
+test('autoAssignSpeakerVoices honors user preferredVoice for primary speaker', () => {
+  const speakersMeta = {
+    speaker_0: { id: 'speaker_0', gender: 'Male', pitch_hz: 130.0 },
+    speaker_1: { id: 'speaker_1', gender: 'Female', pitch_hz: 210.0 },
+  };
+
+  const assignedBodi = autoAssignSpeakerVoices(speakersMeta, ['speaker_0', 'speaker_1'], 'Bodi');
+  assert.equal(assignedBodi.speaker_0, 'Bodi', 'Speaker 0 must be assigned preferred voice Bodi');
+  assert.ok(FEMALE_VOICES.includes(assignedBodi.speaker_1), 'Speaker 1 must receive a female voice');
+
+  const assignedFola = autoAssignSpeakerVoices({
+    speaker_0: { id: 'speaker_0', gender: 'Female', pitch_hz: 220.0 }
+  }, ['speaker_0'], 'Fola');
+  assert.equal(assignedFola.speaker_0, 'Fola', 'Speaker 0 must be assigned preferred voice Fola');
 });
 
 test('autoAssignSpeakerVoices matches visual demographic age tiers correctly', () => {
